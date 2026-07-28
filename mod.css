@@ -1,1 +1,877 @@
+/* ==========================================
+   Galaxy UI CSS Part1
+   基本設定・背景・ラジアル本体
+========================================== */
 
+:root{
+
+    --blue:#6fdfff;
+    --blue2:#9cecff;
+
+    --green:#b6ff74;
+    --green2:#d8ff9b;
+
+    --glass:
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,.22),
+            rgba(255,255,255,.05)
+        );
+
+    --bg:
+        rgba(10,15,22,.35);
+
+    --shadowBlue:
+        0 0 25px rgba(111,223,255,.35);
+
+    --shadowGreen:
+        0 0 25px rgba(182,255,116,.45);
+
+    --transition:
+        .18s cubic-bezier(.25,.9,.3,1);
+
+}
+
+
+/* ==========================================
+   全体
+========================================== */
+
+#galaxy-ui{
+
+    position:fixed;
+
+    inset:0;
+
+    z-index:999999;
+
+    pointer-events:none;
+
+    opacity:0;
+
+    transition:.22s;
+
+    overflow:hidden;
+
+}
+
+
+#galaxy-ui.show{
+
+    opacity:1;
+
+    pointer-events:auto;
+
+}
+
+
+/* ==========================================
+   背景
+========================================== */
+
+#galaxy-overlay{
+
+    position:absolute;
+
+    inset:0;
+
+    background:
+
+        radial-gradient(
+
+            circle,
+
+            rgba(30,40,55,.15),
+
+            rgba(0,0,0,.58)
+
+        );
+
+    backdrop-filter:blur(5px);
+
+    -webkit-backdrop-filter:blur(5px);
+
+}
+
+
+/* ==========================================
+   円メニュー本体
+========================================== */
+
+#galaxy-wheel{
+
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    width:540px;
+    height:540px;
+
+    margin-left:-270px;
+    margin-top:-270px;
+
+    border-radius:50%;
+
+    transform:scale(.25);
+
+    opacity:0;
+
+    transition:
+
+        transform .28s cubic-bezier(.18,1.1,.28,1),
+
+        opacity .28s;
+
+}
+
+
+/* 開いた時 */
+
+#galaxy-ui.show #galaxy-wheel{
+
+    transform:scale(1);
+
+    opacity:1;
+
+}
+
+
+/* ==========================================
+   外側リング
+========================================== */
+
+#galaxy-ring{
+
+    position:absolute;
+
+    inset:0;
+
+    border-radius:50%;
+
+    border:
+
+        2px solid rgba(111,223,255,.15);
+
+    box-shadow:
+
+        0 0 40px rgba(111,223,255,.15),
+
+        inset 0 0 40px rgba(111,223,255,.08);
+
+}
+
+
+/* 内側リング */
+
+#galaxy-ring::before{
+
+    content:"";
+
+    position:absolute;
+
+    inset:55px;
+
+    border-radius:50%;
+
+    border:
+
+        1px solid rgba(255,255,255,.08);
+
+}
+
+
+/* ==========================================
+   ゆっくり回るリング
+========================================== */
+
+.galaxy-spin{
+
+    animation:
+
+        galaxySpin 55s linear infinite;
+
+}
+
+
+/* ホバー時は停止 */
+
+.galaxy-spin.pause{
+
+    animation-play-state:paused;
+
+}
+
+
+/* ==========================================
+   回転
+========================================== */
+
+@keyframes galaxySpin{
+
+    from{
+
+        transform:rotate(0deg);
+
+    }
+
+    to{
+
+        transform:rotate(360deg);
+
+    }
+
+}
+
+
+/* ==========================================
+   開くアニメーション
+========================================== */
+
+@keyframes galaxyOpen{
+
+    0%{
+
+        transform:
+
+            scale(.2);
+
+        opacity:0;
+
+        filter:blur(10px);
+
+    }
+
+    60%{
+
+        transform:
+
+            scale(1.05);
+
+        filter:blur(0px);
+
+    }
+
+    100%{
+
+        transform:
+
+            scale(1);
+
+        opacity:1;
+
+    }
+
+}
+
+
+/* ==========================================
+   閉じる
+========================================== */
+
+@keyframes galaxyClose{
+
+    to{
+
+        transform:
+
+            scale(.2);
+
+        opacity:0;
+
+    }
+
+}
+
+
+/* ==========================================
+   クリックできる物だけ
+========================================== */
+
+.galaxy-click{
+
+    pointer-events:auto;
+
+}
+
+
+/* ==========================================
+   選択禁止
+========================================== */
+
+#galaxy-ui *{
+
+    user-select:none;
+
+    -webkit-user-select:none;
+
+    box-sizing:border-box;
+
+    font-family:
+
+        Inter,
+        "Segoe UI",
+        sans-serif;
+
+}
+/* ==========================================
+   Galaxy UI CSS Part2
+   中央ボタン・カテゴリボタン
+========================================== */
+
+
+/*==============================
+    中央ボタン
+==============================*/
+
+#galaxy-center{
+
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    width:110px;
+    height:110px;
+
+    margin-left:-55px;
+    margin-top:-55px;
+
+    border-radius:50%;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    background:var(--glass);
+
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+
+    border:
+
+        2px solid rgba(180,255,255,.45);
+
+    box-shadow:
+
+        0 0 35px rgba(100,220,255,.25),
+
+        inset 0 0 25px rgba(255,255,255,.08);
+
+    transition:var(--transition);
+
+    cursor:pointer;
+
+}
+
+
+/* ホバー */
+
+#galaxy-center:hover{
+
+    transform:scale(1.08);
+
+    box-shadow:
+
+        0 0 60px rgba(100,220,255,.55),
+
+        inset 0 0 35px rgba(255,255,255,.15);
+
+}
+
+
+/*==============================
+    中央文字
+==============================*/
+
+#galaxy-center-text{
+
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    transform:
+
+        translate(-50%,-50%);
+
+    color:white;
+
+    font-size:18px;
+
+    font-weight:700;
+
+    letter-spacing:.5px;
+
+    pointer-events:none;
+
+}
+
+
+/*==============================
+    カテゴリボタン
+==============================*/
+
+.galaxy-button{
+
+    position:absolute;
+
+    width:86px;
+    height:86px;
+
+    margin-left:-43px;
+    margin-top:-43px;
+
+    border-radius:50%;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    background:var(--glass);
+
+    backdrop-filter:blur(16px);
+
+    border:
+
+        2px solid rgba(170,240,255,.35);
+
+    box-shadow:
+
+        0 0 18px rgba(100,220,255,.18);
+
+    transition:
+
+        transform .18s,
+
+        box-shadow .18s,
+
+        border-color .18s,
+
+        background .18s;
+
+    cursor:pointer;
+
+}
+
+
+/*==============================
+    ラベル
+==============================*/
+
+.galaxy-label{
+
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    transform:
+
+        translate(-50%,-50%);
+
+    width:100%;
+
+    text-align:center;
+
+    color:white;
+
+    font-size:13px;
+
+    font-weight:700;
+
+    letter-spacing:.3px;
+
+    pointer-events:none;
+
+}
+
+
+/*==============================
+    ホバー
+==============================*/
+
+.galaxy-button:hover{
+
+    transform:
+
+        scale(1.16);
+
+    border-color:
+
+        rgba(220,255,255,.9);
+
+    box-shadow:
+
+        0 0 25px rgba(120,240,255,.65),
+
+        0 0 70px rgba(120,240,255,.18);
+
+}
+
+
+/*==============================
+    ON
+==============================*/
+
+.galaxy-button.active{
+
+    background:
+
+        linear-gradient(
+
+            145deg,
+
+            rgba(180,255,120,.30),
+
+            rgba(180,255,120,.08)
+
+        );
+
+    border-color:
+
+        rgba(220,255,170,.9);
+
+    box-shadow:
+
+        0 0 30px rgba(180,255,120,.55),
+
+        0 0 70px rgba(180,255,120,.2);
+
+}
+
+
+/*==============================
+    OFF
+==============================*/
+
+.galaxy-button:not(.active){
+
+    background:var(--glass);
+
+}
+
+
+/*==============================
+    少し浮く
+==============================*/
+
+.galaxy-button::before{
+
+    content:"";
+
+    position:absolute;
+
+    inset:6px;
+
+    border-radius:50%;
+
+    background:
+
+        linear-gradient(
+
+            180deg,
+
+            rgba(255,255,255,.18),
+
+            rgba(255,255,255,0)
+
+        );
+
+    opacity:.45;
+
+}
+
+
+/*==============================
+    押した時
+==============================*/
+
+.galaxy-button:active{
+
+    transform:
+
+        scale(.95);
+
+}
+/* ==========================================
+   Galaxy UI CSS Part3
+   回転・文字固定・ホバー演出
+========================================== */
+
+
+/*==============================
+    リングだけ回転
+==============================*/
+
+#galaxy-ring{
+
+    transform-origin:center center;
+
+    will-change:transform;
+
+}
+
+
+/*==============================
+    ボタンレイヤー
+==============================*/
+
+.galaxy-button{
+
+    transform-origin:center center;
+
+    will-change:transform;
+
+}
+
+
+/*==============================
+    ラベルは絶対水平
+==============================*/
+
+.galaxy-label{
+
+    transform:
+
+        translate(-50%,-50%);
+
+    transition:
+
+        opacity .18s,
+
+        color .18s;
+
+    z-index:5;
+
+}
+
+
+/*==============================
+    中央文字
+==============================*/
+
+#galaxy-center-text{
+
+    transform:
+
+        translate(-50%,-50%);
+
+    z-index:20;
+
+}
+
+
+/*==============================
+    ホバーしたボタン
+==============================*/
+
+.galaxy-button:hover{
+
+    z-index:100;
+
+}
+
+
+/*==============================
+    他ボタンを少し暗く
+==============================*/
+
+.galaxy-wheel-hover .galaxy-button{
+
+    opacity:.35;
+
+    filter:saturate(.7);
+
+}
+
+
+.galaxy-wheel-hover .galaxy-button:hover{
+
+    opacity:1;
+
+    filter:none;
+
+}
+
+
+/*==============================
+    発光
+==============================*/
+
+.galaxy-button:hover{
+
+    box-shadow:
+
+        0 0 12px rgba(120,240,255,.8),
+
+        0 0 28px rgba(120,240,255,.55),
+
+        0 0 70px rgba(120,240,255,.2);
+
+}
+
+
+/*==============================
+    中央も少し光る
+==============================*/
+
+#galaxy-center:hover{
+
+    box-shadow:
+
+        0 0 18px rgba(120,240,255,.8),
+
+        0 0 55px rgba(120,240,255,.25);
+
+}
+
+
+/*==============================
+    ガラスの反射
+==============================*/
+
+.galaxy-button::after{
+
+    content:"";
+
+    position:absolute;
+
+    left:-45%;
+
+    top:-100%;
+
+    width:38%;
+
+    height:260%;
+
+    background:
+
+        linear-gradient(
+
+            90deg,
+
+            rgba(255,255,255,0),
+
+            rgba(255,255,255,.32),
+
+            rgba(255,255,255,0)
+
+        );
+
+    transform:
+
+        rotate(28deg);
+
+    opacity:0;
+
+    pointer-events:none;
+
+}
+
+
+/*==============================
+    ホバーで反射
+==============================*/
+
+.galaxy-button:hover::after{
+
+    animation:
+
+        galaxyShine .7s ease;
+
+}
+
+
+@keyframes galaxyShine{
+
+    from{
+
+        left:-55%;
+
+        opacity:0;
+
+    }
+
+    20%{
+
+        opacity:1;
+
+    }
+
+    to{
+
+        left:135%;
+
+        opacity:0;
+
+    }
+
+}
+
+
+/*==============================
+    ホバー中はカーソル優先
+==============================*/
+
+.galaxy-button:hover{
+
+    transition:
+
+        transform .12s,
+
+        box-shadow .12s,
+
+        border-color .12s;
+
+}
+
+
+/*==============================
+    ボタンが少し浮く
+==============================*/
+
+.galaxy-button{
+
+    transform-style:
+
+        preserve-3d;
+
+}
+
+
+.galaxy-button:hover{
+
+    transform:
+
+        scale(1.15)
+
+        translateY(-4px);
+
+}
+
+
+/*==============================
+    ON状態
+==============================*/
+
+.galaxy-button.active{
+
+    color:
+
+        rgb(240,255,230);
+
+}
+
+
+/*==============================
+    OFF状態
+==============================*/
+
+.galaxy-button:not(.active){
+
+    color:
+
+        rgba(255,255,255,.95);
+
+}
