@@ -46,8 +46,6 @@
 
     function toggleModule(b,name){const on=b.dataset.enabled==="true";b.dataset.enabled=String(!on);b.classList.toggle("active",!on);console.log(`[Sonnet] ${name}: ${!on?"ON":"OFF"}`)}
 
-    // Diep.io風：中央を固定したまま、各ボタンが半径0から滑らかに外へ展開。
-    // 回転速度は最初だけ速く、半径が完成するにつれて自然に通常速度へ戻る。
     function beginOpenMotion(){Galaxy.anim={type:"open",start:performance.now(),duration:1150,startRadius:0,endRadius:205,startSpeed:7.5,endSpeed:.10};Galaxy.radius=0}
     function beginCloseMotion(){Galaxy.anim={type:"close",start:performance.now(),duration:720,startRadius:Galaxy.radius,endRadius:0,startSpeed:.10,endSpeed:7.0}}
 
@@ -78,14 +76,15 @@
             Galaxy.angle+=Galaxy.speed;
         }
 
-        // wheel自体は回転させない。ボタンの座標だけを公転させるので文字は絶対に回転しない。
+        // サブピクセルのleft/top更新による微細なプルプルを防ぐため、
+        // ボタンは全て50%基準のtranslate3dで位置を動かす。
+        // wheel自体は回転させないので、文字も絶対に回転しない。
         Galaxy.buttons.forEach(b=>{
             const angle=b._baseAngle+Galaxy.angle*Math.PI/180;
             const x=Math.cos(angle)*Galaxy.radius;
             const y=Math.sin(angle)*Galaxy.radius;
-            b.style.left=`calc(50% + ${x}px)`;
-            b.style.top=`calc(50% + ${y}px)`;
-            const l=b.querySelector(".galaxy-label");if(l)l.style.transform="translate(-50%,-50%)";
+            b.style.setProperty("--orbit-x",`${x.toFixed(3)}px`);
+            b.style.setProperty("--orbit-y",`${y.toFixed(3)}px`);
         });
         Galaxy.raf=requestAnimationFrame(animate);
     }
