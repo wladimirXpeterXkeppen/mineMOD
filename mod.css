@@ -27,21 +27,20 @@
 #galaxy-ui.sub-center #galaxy-center-logo{opacity:0}
 #galaxy-ui.sub-center #galaxy-center-text{display:block}
 #galaxy-ui:not(.sub-center) #galaxy-center-text{display:none}
-.galaxy-button{position:absolute;width:86px;height:86px;margin:-43px 0 0 -43px;border:2px solid var(--theme-blue);border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 0 20px color-mix(in srgb,var(--theme-glow) 45%,transparent),inset 0 0 16px rgba(255,255,255,.06);cursor:pointer;color:white;transition:transform .14s ease,box-shadow .14s,border-color .14s,background .14s;z-index:5;pointer-events:auto;opacity:0}
+.galaxy-button{position:absolute;width:86px;height:86px;margin:0;border:2px solid var(--theme-blue);border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 0 20px color-mix(in srgb,var(--theme-glow) 45%,transparent),inset 0 0 16px rgba(255,255,255,.06);cursor:pointer;color:white;transition:transform .14s ease,box-shadow .14s,border-color .14s,background .14s;z-index:5;pointer-events:auto;opacity:0;left:50%;top:50%;transform:translate3d(calc(-50% + var(--orbit-x,0px)),calc(-50% + var(--orbit-y,0px)),0);backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform}
 #galaxy-ui.show .galaxy-button{animation:button-fade-in 1.15s cubic-bezier(.22,.75,.25,1) forwards}
 #galaxy-ui.closing .galaxy-button{animation:button-fade-out .72s cubic-bezier(.55,.05,.8,.4) forwards}
 @keyframes button-fade-in{0%{opacity:0;filter:blur(8px) brightness(.55)}35%{opacity:.18;filter:blur(4px) brightness(.72)}70%{opacity:.7;filter:blur(1px) brightness(.95)}100%{opacity:1;filter:blur(0) brightness(1)}}
 @keyframes button-fade-out{0%{opacity:1;filter:blur(0) brightness(1)}30%{opacity:.86;filter:blur(.5px) brightness(.96)}65%{opacity:.38;filter:blur(3px) brightness(.8)}100%{opacity:0;filter:blur(8px) brightness(.45)}}
-.galaxy-button:hover{transform:translate(-50%,-50%) scale(1.15) translateY(-4px);border-color:white;box-shadow:0 0 28px color-mix(in srgb,var(--theme-glow) 90%,transparent),0 0 75px color-mix(in srgb,var(--theme-glow) 30%,transparent);z-index:100}
+.galaxy-button:hover{transform:translate3d(calc(-50% + var(--orbit-x,0px)),calc(-50% + var(--orbit-y,0px)),0) scale(1.15) translateY(-4px);border-color:white;box-shadow:0 0 28px color-mix(in srgb,var(--theme-glow) 90%,transparent),0 0 75px color-mix(in srgb,var(--theme-glow) 30%,transparent);z-index:100}
 .galaxy-button.active{background:linear-gradient(145deg,color-mix(in srgb,var(--theme-green) 42%,#07100b),rgba(15,25,20,.8));border-color:var(--theme-green);box-shadow:0 0 32px color-mix(in srgb,var(--theme-green) 80%,transparent),0 0 75px color-mix(in srgb,var(--theme-green) 28%,transparent)}
 .galaxy-label{position:absolute;left:50%;top:50%;width:100%;transform:translate(-50%,-50%)!important;text-align:center;color:#fff;text-shadow:0 1px 5px #000,0 0 8px var(--theme-glow);font:800 13px Inter,"Segoe UI",sans-serif;letter-spacing:.3px;pointer-events:none;white-space:nowrap}
 .galaxy-button:before{content:"";position:absolute;inset:6px;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0));opacity:.55;pointer-events:none}
 .galaxy-wheel-hover .galaxy-button{opacity:.32;filter:saturate(.7)}
 .galaxy-wheel-hover .galaxy-button:hover{opacity:1;filter:none}
-.galaxy-button:active{transform:translate(-50%,-50%) scale(.95)}
+.galaxy-button:active{transform:translate3d(calc(-50% + var(--orbit-x,0px)),calc(-50% + var(--orbit-y,0px)),0) scale(.95)}
 #galaxy-buttons{position:absolute;inset:0;pointer-events:none}
-#galaxy-buttons .galaxy-button{will-change:left,top,transform}
 #galaxy-ui *{user-select:none;-webkit-user-select:none;font-family:Inter,"Segoe UI",sans-serif}
 #galaxy-ui[data-theme="gaming"] #galaxy-ring,#galaxy-ui[data-theme="gaming"] #galaxy-center,#galaxy-ui[data-theme="gaming"] .galaxy-button{animation:galaxy-rainbow 5s linear infinite}
 @keyframes galaxy-rainbow{0%{filter:hue-rotate(0deg)}100%{filter:hue-rotate(360deg)}}
-@media(max-width:650px){#galaxy-wheel{width:420px;height:420px}.galaxy-button{width:68px;height:68px;margin:-34px 0 0 -34px}.galaxy-label{font-size:11px}#galaxy-ui #galaxy-center{width:90px!important;height:90px!important}}
+@media(max-width:650px){#galaxy-wheel{width:420px;height:420px}.galaxy-button{width:68px;height:68px}.galaxy-label{font-size:11px}#galaxy-ui #galaxy-center{width:90px!important;height:90px!important}}
