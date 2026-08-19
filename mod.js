@@ -33,18 +33,27 @@
         applyTheme();
     }
     function clearButtons(){Galaxy.ui.querySelector("#galaxy-buttons").replaceChildren();Galaxy.buttons.length=0;}
+    function resumeRotation(){
+        Galaxy.paused=false;
+        Galaxy.wheel.classList.remove("galaxy-wheel-hover");
+        // 戻るボタンの上にカーソルが残っていても、いったん回転を再開する
+        requestAnimationFrame(()=>{
+            if(Galaxy.open) Galaxy.paused=false;
+        });
+    }
     function createRadialButtons(items,back=false){
         clearButtons(); const c=Galaxy.ui.querySelector("#galaxy-buttons"),list=back?[...items,"← 戻る"]:items,r=205,step=Math.PI*2/list.length;
         list.forEach((name,i)=>{
             const b=document.createElement("button"); b.type="button"; b.className="galaxy-button"; b.dataset.module=name;b.dataset.enabled="false";
             const a=-Math.PI/2+step*i;b.style.left=`calc(50% + ${Math.cos(a)*r}px)`;b.style.top=`calc(50% + ${Math.sin(a)*r}px)`;b.innerHTML=`<span class="galaxy-label">${esc(name)}</span>`;
-            b.addEventListener("mouseenter",()=>{Galaxy.paused=true;Galaxy.wheel.classList.add("galaxy-wheel-hover")});
+            b.addEventListener("mouseenter",()=>{if(!b.dataset.returnButton){Galaxy.paused=true;Galaxy.wheel.classList.add("galaxy-wheel-hover")}});
             b.addEventListener("mouseleave",()=>{Galaxy.paused=false;Galaxy.wheel.classList.remove("galaxy-wheel-hover")});
-            b.addEventListener("click",e=>{e.stopPropagation();if(name==="← 戻る")return showMain();if(Galaxy.current==="main")return showCategory(name);if(name==="Theme")return showThemes();toggleModule(b,name)});
+            if(name==="← 戻る") b.dataset.returnButton="true";
+            b.addEventListener("click",e=>{e.stopPropagation();if(name==="← 戻る"){resumeRotation();return showMain();}if(Galaxy.current==="main")return showCategory(name);if(name==="Theme")return showThemes();toggleModule(b,name)});
             c.appendChild(b);Galaxy.buttons.push(b);
         });
     }
-    function showMain(){Galaxy.current="main";createRadialButtons(CATEGORIES)}
+    function showMain(){Galaxy.current="main";createRadialButtons(CATEGORIES);resumeRotation()}
     function showCategory(category){Galaxy.current=category;createRadialButtons(MODULES[category]||[],true)}
     function showThemes(){
         Galaxy.current="theme"; clearButtons(); const list=Object.keys(themes).map(k=>themes[k].name),c=Galaxy.ui.querySelector("#galaxy-buttons"),r=205,step=Math.PI*2/list.length;
@@ -53,7 +62,7 @@
     function toggleModule(b,name){const on=b.dataset.enabled==="true";b.dataset.enabled=String(!on);b.classList.toggle("active",!on);console.log(`[Galaxy] ${name}: ${!on?"ON":"OFF"}`)}
     function setOpen(v){Galaxy.open=v;Galaxy.ui.classList.toggle("show",v);if(!v){Galaxy.paused=false;Galaxy.wheel.classList.remove("galaxy-wheel-hover")}}
     const open=()=>setOpen(true),close=()=>setOpen(false),toggle=()=>setOpen(!Galaxy.open);
-    function animate(){if(Galaxy.open&&!Galaxy.paused)Galaxy.angle+=Galaxy.speed;Galaxy.wheel.style.transform=`translate(-50%,-50%) rotate(${Galaxy.angle}deg)`;Galaxy.buttons.forEach(b=>{const l=b.querySelector(".galaxy-label");if(l)l.style.transform=`translate(-50%,-50%) rotate(${-Galaxy.angle}deg)`});const t=Galaxy.center.querySelector("#galaxy-center-text");if(t)t.style.transform=`translate(-50%,-50%) rotate(${-Galaxy.angle}deg)`;Galaxy.raf=requestAnimationFrame(animate)}
+    function animate(){if(Galaxy.open&&!Galaxy.paused)Galaxy.angle+=Galaxy.speed;Galaxy.wheel.style.transform=`translate(-50%,-50%) rotate(${Galaxy.angle}deg)`;Galaxy.buttons.forEach(b=>{const l=b.querySelector(".galaxy-label");if(l)l.style.transform=`translate(-50%,-50% rotate(${-Galaxy.angle}deg)`});const t=Galaxy.center.querySelector("#galaxy-center-text");if(t)t.style.transform=`translate(-50%,-50%) rotate(${-Galaxy.angle}deg)`;Galaxy.raf=requestAnimationFrame(animate)}
     function key(e){if(e.code!=="AltRight"||e.repeat)return;e.preventDefault();e.stopPropagation();toggle()}
     function destroy(){cancelAnimationFrame(Galaxy.raf);document.removeEventListener("keydown",key,true);Galaxy.ui?.remove();delete window.__GalaxyUI}
     function init(){createUI();showMain();document.addEventListener("keydown",key,true);Galaxy.raf=requestAnimationFrame(animate);window.__GalaxyUI={open,close,toggle,showMain,showCategory,showThemes,destroy,setTheme(k){if(themes[k]){Galaxy.theme=k;applyTheme()}},themes,state:Galaxy};console.log("%c[Galaxy UI] Loaded%c 右Altで開閉 / Themeでテーマ変更","color:#6fdfff;font-weight:bold","color:inherit")}
