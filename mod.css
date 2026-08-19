@@ -8,7 +8,8 @@
 #galaxy-ui.show #galaxy-wheel{transform:translate(-50%,-50%) rotate(var(--rotation)) scale(1);opacity:1}
 #galaxy-ring{position:absolute;inset:0;border-radius:50%;border:2px solid var(--theme-blue);box-shadow:0 0 35px color-mix(in srgb,var(--theme-glow) 65%,transparent),inset 0 0 35px color-mix(in srgb,var(--theme-blue) 25%,transparent);pointer-events:none}
 #galaxy-ring:before{content:"";position:absolute;inset:55px;border-radius:50%;border:1px solid rgba(255,255,255,.16)}
-#galaxy-center{position:absolute;left:50%;top:50%;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:2px solid var(--theme-blue);box-shadow:0 0 35px color-mix(in srgb,var(--theme-glow) 60%,transparent),inset 0 0 25px rgba(255,255,255,.12);cursor:pointer;z-index:20;will-change:transform}
+/* 中央ボタンは回転するwheelとは独立して固定 */
+#galaxy-center{position:fixed;left:50%;top:50%;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:2px solid var(--theme-blue);box-shadow:0 0 35px color-mix(in srgb,var(--theme-glow) 60%,transparent),inset 0 0 25px rgba(255,255,255,.12);cursor:pointer;z-index:2147483647;will-change:auto}
 #galaxy-center:hover{box-shadow:0 0 60px color-mix(in srgb,var(--theme-glow) 85%,transparent),inset 0 0 35px rgba(255,255,255,.18)}
 #galaxy-center-text{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:white;font:800 14px Inter,"Segoe UI",sans-serif;text-shadow:0 1px 5px #000,0 0 10px var(--theme-glow);white-space:nowrap;pointer-events:none;z-index:3;letter-spacing:.4px}
 #galaxy-center-logo{position:absolute;left:50%;top:50%;width:52px;height:52px;transform:translate(-50%,-50%);opacity:1;pointer-events:none;transition:opacity .2s}
