@@ -1,15 +1,13 @@
-/* Sonnet UI - cinematic radial menu */
+/* Sonnet UI - radial menu */
 :root{--glass:linear-gradient(145deg,rgba(20,30,45,.94),rgba(5,10,20,.82))}
 *{box-sizing:border-box}
 #galaxy-ui{--theme-blue:#00eaff;--theme-green:#7dff4d;--theme-glow:#00d9ff;position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;z-index:2147483647!important;pointer-events:none;opacity:0;overflow:hidden}
-#galaxy-ui.show{opacity:1;pointer-events:auto}
-#galaxy-overlay{position:absolute;inset:0;background:radial-gradient(circle at center,rgba(15,25,45,.18),rgba(0,0,0,.76));backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);pointer-events:auto;opacity:0;transition:opacity .55s ease}
+#galaxy-ui.show,#galaxy-ui.closing{opacity:1;pointer-events:auto}
+#galaxy-overlay{position:absolute;inset:0;background:radial-gradient(circle at center,rgba(15,25,45,.18),rgba(0,0,0,.76));backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);pointer-events:auto;opacity:0;transition:opacity .5s ease}
 #galaxy-ui.show #galaxy-overlay{opacity:1}
-#galaxy-wheel{--rotation:0deg;position:absolute!important;left:50%!important;top:50%!important;width:540px;height:540px;margin:0!important;transform:translate(-50%,-50%) rotate(var(--rotation)) scale(.05);transform-origin:50% 50%;border-radius:50%;opacity:0;will-change:transform,opacity,filter;pointer-events:none;filter:brightness(.45) blur(3px)}
-#galaxy-ui.show #galaxy-wheel{animation:galaxy-open 1s cubic-bezier(.12,.82,.18,1) forwards}
-#galaxy-ui.closing #galaxy-wheel{animation:galaxy-close .62s cubic-bezier(.65,.05,.9,.35) forwards}
-@keyframes galaxy-open{0%{opacity:0;transform:translate(-50%,-50%) rotate(-75deg) scale(.05);filter:brightness(.25) blur(10px)}38%{opacity:.9;transform:translate(-50%,-50%) rotate(180deg) scale(.42);filter:brightness(.55) blur(5px)}65%{opacity:1;transform:translate(-50%,-50%) rotate(430deg) scale(.72);filter:brightness(.9) blur(1px)}84%{transform:translate(-50%,-50%) rotate(620deg) scale(.91);filter:brightness(1.12) blur(0)}100%{opacity:1;transform:translate(-50%,-50%) rotate(780deg) scale(1);filter:brightness(1) blur(0)}}
-@keyframes galaxy-close{0%{opacity:1;transform:translate(-50%,-50%) rotate(0deg) scale(1);filter:brightness(1) blur(0)}28%{opacity:1;transform:translate(-50%,-50%) rotate(-150deg) scale(.82);filter:brightness(1.12) blur(1px)}58%{opacity:.9;transform:translate(-50%,-50%) rotate(-340deg) scale(.55);filter:brightness(.9) blur(2px)}82%{opacity:.5;transform:translate(-50%,-50%) rotate(-510deg) scale(.24);filter:brightness(.55) blur(6px)}100%{opacity:0;transform:translate(-50%,-50%) rotate(-650deg) scale(.025);filter:brightness(.2) blur(11px)}}
+#galaxy-wheel{--rotation:0deg;--wheel-scale:.05;position:absolute!important;left:50%!important;top:50%!important;width:540px;height:540px;margin:0!important;transform:translate(-50%,-50%) rotate(var(--rotation)) scale(var(--wheel-scale));transform-origin:50% 50%;border-radius:50%;opacity:0;will-change:transform,opacity,filter;pointer-events:none;filter:brightness(.45) blur(3px)}
+#galaxy-ui.show #galaxy-wheel,#galaxy-ui.closing #galaxy-wheel{opacity:1}
+/* 回転と拡大縮小はJSで同期制御。開く瞬間は高速回転→減速しながら円周が広がる */
 #galaxy-ring{position:absolute;inset:0;border-radius:50%;border:2px solid var(--theme-blue);box-shadow:0 0 35px color-mix(in srgb,var(--theme-glow) 65%,transparent),0 0 90px color-mix(in srgb,var(--theme-glow) 28%,transparent),inset 0 0 35px color-mix(in srgb,var(--theme-blue) 25%,transparent);pointer-events:none}
 #galaxy-ring:before{content:"";position:absolute;inset:55px;border-radius:50%;border:1px solid rgba(255,255,255,.16);box-shadow:0 0 20px rgba(255,255,255,.08)}
 #galaxy-ui #galaxy-center{position:absolute!important;left:50vw!important;top:50vh!important;width:110px!important;height:110px!important;margin:0!important;transform:translate(-50%,-50%)!important;transform-origin:center!important;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:2px solid var(--theme-blue);box-shadow:0 0 35px color-mix(in srgb,var(--theme-glow) 60%,transparent),inset 0 0 25px rgba(255,255,255,.12);cursor:pointer;z-index:2147483647;pointer-events:auto;transition:box-shadow .18s,opacity .35s}
