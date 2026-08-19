@@ -1,20 +1,19 @@
-/* Sonnet UI - radial menu */
+/* Sonnet UI - smooth radial menu */
 :root{--glass:linear-gradient(145deg,rgba(20,30,45,.94),rgba(5,10,20,.82))}
 *{box-sizing:border-box}
 #galaxy-ui{--theme-blue:#00eaff;--theme-green:#7dff4d;--theme-glow:#00d9ff;position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;z-index:2147483647!important;pointer-events:none;opacity:0;overflow:hidden}
 #galaxy-ui.show,#galaxy-ui.closing{opacity:1;pointer-events:auto}
-#galaxy-overlay{position:absolute;inset:0;background:radial-gradient(circle at center,rgba(15,25,45,.18),rgba(0,0,0,.76));backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);pointer-events:auto;opacity:0;transition:opacity .5s ease}
+#galaxy-overlay{position:absolute;inset:0;background:radial-gradient(circle at center,rgba(15,25,45,.18),rgba(0,0,0,.76));backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);pointer-events:auto;opacity:0;transition:opacity .55s ease}
 #galaxy-ui.show #galaxy-overlay{opacity:1}
-#galaxy-wheel{--rotation:0deg;--wheel-scale:.05;position:absolute!important;left:50%!important;top:50%!important;width:540px;height:540px;margin:0!important;transform:translate(-50%,-50%) rotate(var(--rotation)) scale(var(--wheel-scale));transform-origin:50% 50%;border-radius:50%;opacity:0;will-change:transform,opacity,filter;pointer-events:none;filter:brightness(.45) blur(3px)}
-#galaxy-ui.show #galaxy-wheel,#galaxy-ui.closing #galaxy-wheel{opacity:1}
-/* 回転と拡大縮小はJSで同期制御。開く瞬間は高速回転→減速しながら円周が広がる */
-#galaxy-ring{position:absolute;inset:0;border-radius:50%;border:2px solid var(--theme-blue);box-shadow:0 0 35px color-mix(in srgb,var(--theme-glow) 65%,transparent),0 0 90px color-mix(in srgb,var(--theme-glow) 28%,transparent),inset 0 0 35px color-mix(in srgb,var(--theme-blue) 25%,transparent);pointer-events:none}
+#galaxy-wheel{position:absolute!important;left:50%!important;top:50%!important;width:540px;height:540px;margin:0!important;transform:translate(-50%,-50%)!important;transform-origin:center;border-radius:50%;opacity:1;pointer-events:none}
+#galaxy-ui:not(.show):not(.closing) #galaxy-wheel{opacity:0}
+#galaxy-ring{position:absolute;inset:0;border-radius:50%;border:2px solid var(--theme-blue);box-shadow:0 0 35px color-mix(in srgb,var(--theme-glow) 65%,transparent),0 0 90px color-mix(in srgb,var(--theme-glow) 28%,transparent),inset 0 0 35px color-mix(in srgb,var(--theme-blue) 25%,transparent);pointer-events:none;opacity:.75}
 #galaxy-ring:before{content:"";position:absolute;inset:55px;border-radius:50%;border:1px solid rgba(255,255,255,.16);box-shadow:0 0 20px rgba(255,255,255,.08)}
 #galaxy-ui #galaxy-center{position:absolute!important;left:50vw!important;top:50vh!important;width:110px!important;height:110px!important;margin:0!important;transform:translate(-50%,-50%)!important;transform-origin:center!important;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:2px solid var(--theme-blue);box-shadow:0 0 35px color-mix(in srgb,var(--theme-glow) 60%,transparent),inset 0 0 25px rgba(255,255,255,.12);cursor:pointer;z-index:2147483647;pointer-events:auto;transition:box-shadow .18s,opacity .35s}
-#galaxy-ui.show #galaxy-center{animation:center-arrive .65s cubic-bezier(.16,1.2,.3,1) both}
+#galaxy-ui.show #galaxy-center{animation:center-arrive .55s cubic-bezier(.16,1.2,.3,1) both}
 #galaxy-ui.closing #galaxy-center{animation:center-exit .42s cubic-bezier(.7,.05,.9,.3) both}
-@keyframes center-arrive{0%{opacity:0;transform:translate(-50%,-50%) scale(.2)!important;filter:blur(8px)}65%{opacity:1;transform:translate(-50%,-50%) scale(1.1)!important;filter:blur(0)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)!important}}
-@keyframes center-exit{0%{opacity:1;transform:translate(-50%,-50%) scale(1)!important}100%{opacity:0;transform:translate(-50%,-50%) scale(.18)!important;filter:blur(7px)}}
+@keyframes center-arrive{0%{opacity:0;transform:translate(-50%,-50%) scale(.55)!important;filter:blur(5px)}70%{opacity:1;transform:translate(-50%,-50%) scale(1.04)!important;filter:blur(0)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)!important}}
+@keyframes center-exit{0%{opacity:1;transform:translate(-50%,-50%) scale(1)!important}100%{opacity:0;transform:translate(-50%,-50%) scale(.45)!important;filter:blur(5px)}}
 #galaxy-ui #galaxy-center:hover{box-shadow:0 0 60px color-mix(in srgb,var(--theme-glow) 85%,transparent),inset 0 0 35px rgba(255,255,255,.18)}
 #galaxy-center-text{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)!important;color:white;font:800 14px Inter,"Segoe UI",sans-serif;text-shadow:0 1px 5px #000,0 0 10px var(--theme-glow);white-space:nowrap;pointer-events:none;z-index:3;letter-spacing:.4px}
 #galaxy-center-logo{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:0;transform:translate(-50%,-50%)!important;opacity:1;pointer-events:none}
@@ -25,16 +24,16 @@
 #galaxy-ui.sub-center #galaxy-center-logo{opacity:0}
 #galaxy-ui.sub-center #galaxy-center-text{display:block}
 #galaxy-ui:not(.sub-center) #galaxy-center-text{display:none}
-.galaxy-button{position:absolute;width:86px;height:86px;margin:-43px 0 0 -43px;border:2px solid var(--theme-blue);border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 0 20px color-mix(in srgb,var(--theme-glow) 45%,transparent),inset 0 0 16px rgba(255,255,255,.06);cursor:pointer;color:white;transition:transform .12s,box-shadow .12s,border-color .12s,background .12s;z-index:5;pointer-events:auto}
-.galaxy-button:hover{transform:scale(1.15) translateY(-4px);border-color:white;box-shadow:0 0 28px color-mix(in srgb,var(--theme-glow) 90%,transparent),0 0 75px color-mix(in srgb,var(--theme-glow) 30%,transparent);z-index:100}
+.galaxy-button{position:absolute;width:86px;height:86px;margin:-43px 0 0 -43px;border:2px solid var(--theme-blue);border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 0 20px color-mix(in srgb,var(--theme-glow) 45%,transparent),inset 0 0 16px rgba(255,255,255,.06);cursor:pointer;color:white;transition:transform .14s ease,box-shadow .14s,border-color .14s,background .14s;z-index:5;pointer-events:auto}
+.galaxy-button:hover{transform:translate(-50%,-50%) scale(1.15) translateY(-4px);border-color:white;box-shadow:0 0 28px color-mix(in srgb,var(--theme-glow) 90%,transparent),0 0 75px color-mix(in srgb,var(--theme-glow) 30%,transparent);z-index:100}
 .galaxy-button.active{background:linear-gradient(145deg,color-mix(in srgb,var(--theme-green) 42%,#07100b),rgba(15,25,20,.8));border-color:var(--theme-green);box-shadow:0 0 32px color-mix(in srgb,var(--theme-green) 80%,transparent),0 0 75px color-mix(in srgb,var(--theme-green) 28%,transparent)}
-.galaxy-label{position:absolute;left:50%;top:50%;width:100%;transform:translate(-50%,-50%);text-align:center;color:#fff;text-shadow:0 1px 5px #000,0 0 8px var(--theme-glow);font:800 13px Inter,"Segoe UI",sans-serif;letter-spacing:.3px;pointer-events:none;white-space:nowrap}
+.galaxy-label{position:absolute;left:50%;top:50%;width:100%;transform:translate(-50%,-50%)!important;text-align:center;color:#fff;text-shadow:0 1px 5px #000,0 0 8px var(--theme-glow);font:800 13px Inter,"Segoe UI",sans-serif;letter-spacing:.3px;pointer-events:none;white-space:nowrap}
 .galaxy-button:before{content:"";position:absolute;inset:6px;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0));opacity:.55;pointer-events:none}
 .galaxy-wheel-hover .galaxy-button{opacity:.32;filter:saturate(.7)}
 .galaxy-wheel-hover .galaxy-button:hover{opacity:1;filter:none}
-.galaxy-button:active{transform:scale(.95)}
+.galaxy-button:active{transform:translate(-50%,-50%) scale(.95)}
 #galaxy-buttons{position:absolute;inset:0;pointer-events:none}
-#galaxy-buttons .galaxy-button{will-change:transform}
+#galaxy-buttons .galaxy-button{will-change:left,top,transform}
 #galaxy-ui *{user-select:none;-webkit-user-select:none;font-family:Inter,"Segoe UI",sans-serif}
 #galaxy-ui[data-theme="gaming"] #galaxy-ring,#galaxy-ui[data-theme="gaming"] #galaxy-center,#galaxy-ui[data-theme="gaming"] .galaxy-button{animation:galaxy-rainbow 5s linear infinite}
 @keyframes galaxy-rainbow{0%{filter:hue-rotate(0deg)}100%{filter:hue-rotate(360deg)}}
