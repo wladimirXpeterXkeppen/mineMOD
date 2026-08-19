@@ -11,7 +11,7 @@
 #galaxy-ring:before{content:"";position:absolute;inset:55px;border-radius:50%;border:1px solid rgba(255,255,255,.16);box-shadow:0 0 20px rgba(255,255,255,.08)}
 #galaxy-ui #galaxy-center{position:absolute!important;left:50vw!important;top:50vh!important;width:110px!important;height:110px!important;margin:0!important;transform:translate(-50%,-50%)!important;transform-origin:center!important;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:2px solid var(--theme-blue);box-shadow:0 0 35px color-mix(in srgb,var(--theme-glow) 60%,transparent),inset 0 0 25px rgba(255,255,255,.12);cursor:pointer;z-index:2147483647;pointer-events:auto;transition:box-shadow .18s,opacity .35s}
 #galaxy-ui.show #galaxy-center{animation:center-arrive .55s cubic-bezier(.16,1.2,.3,1) both}
-#galaxy-ui.closing #galaxy-center{animation:center-exit .42s cubic-bezier(.7,.05,.9,.3) both}
+#galaxy-ui.closing #galaxy-center{animation:none!important;opacity:1!important;transform:translate(-50%,-50%)!important;filter:none!important}
 @keyframes center-arrive{0%{opacity:0;transform:translate(-50%,-50%) scale(.55)!important;filter:blur(5px)}70%{opacity:1;transform:translate(-50%,-50%) scale(1.04)!important;filter:blur(0)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)!important}}
 @keyframes center-exit{0%{opacity:1;transform:translate(-50%,-50%) scale(1)!important}100%{opacity:0;transform:translate(-50%,-50%) scale(.45)!important;filter:blur(5px)}}
 #galaxy-ui #galaxy-center:hover{box-shadow:0 0 60px color-mix(in srgb,var(--theme-glow) 85%,transparent),inset 0 0 35px rgba(255,255,255,.18)}
