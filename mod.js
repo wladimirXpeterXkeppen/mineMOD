@@ -1,634 +1,184 @@
 /* ==========================================
-   Galaxy UI
-   mod.js
+   Galaxy UI - Radial Menu
+   Minefun mod.js
 ========================================== */
 
 (() => {
-"use strict";
-
-/*==========================================
-    Galaxy
-==========================================*/
-
-const Galaxy={
-
-    open:false,
-
-    ui:null,
-    wheel:null,
-    center:null,
-
-    buttons:[],
-
-    angle:0,
-
-    speed:0.15,
-
-    paused:false
-
-};
-
-
-/*==========================================
-    ボタン一覧
-==========================================*/
-
-const CATEGORIES=[
-
-    "Combat",
-    "Movement",
-    "Render",
-    "Player",
-    "Utility",
-    "World",
-    "Visual",
-    "Settings"
-
-];
-
-
-/*==========================================
-    作成
-==========================================*/
-
-function createUI(){
-
-    Galaxy.ui=document.createElement("div");
-    Galaxy.ui.id="galaxy-ui";
-
-    Galaxy.ui.innerHTML=`
-
-<div id="galaxy-overlay"></div>
-
-<div id="galaxy-wheel">
-
-    <div id="galaxy-ring" class="galaxy-spin"></div>
-
-    <div id="galaxy-center">
-        <span id="galaxy-center-text">
-            Galaxy
-        </span>
-    </div>
-
-</div>
-
-`;
-
-    document.body.appendChild(Galaxy.ui);
-
-    Galaxy.wheel=
-        document.getElementById("galaxy-wheel");
-
-    Galaxy.center=
-        document.getElementById("galaxy-center");
-
-}
-
-
-/*==========================================
-    ボタン生成
-==========================================*/
-
-function createButtons(){
-
-    const radius=180;
-
-    const total=CATEGORIES.length;
-
-    for(let i=0;i<total;i++){
-
-        const angle=
-            (Math.PI*2/total)*i;
-
-        const x=
-            Math.cos(angle)*radius;
-
-        const y=
-            Math.sin(angle)*radius;
-
-        const btn=
-            document.createElement("div");
-
-        btn.className="galaxy-button";
-
-        btn.style.left=
-            `calc(50% + ${x}px)`;
-
-        btn.style.top=
-            `calc(50% + ${y}px)`;
-
-        btn.innerHTML=`
-        <span class="galaxy-label">
-            ${CATEGORIES[i]}
-        </span>
-        `;
-
-        btn.dataset.module=
-            CATEGORIES[i];
-
-        Galaxy.wheel.appendChild(btn);
-
-        Galaxy.buttons.push(btn);
-
-    }
-
-}
-
-
-/*==========================================
-    開閉
-==========================================*/
-
-function toggleGalaxy(){
-
-    Galaxy.open=!Galaxy.open;
-
-    Galaxy.ui.classList.toggle(
-        "show",
-        Galaxy.open
-    );
-
-}
-
-
-/*==========================================
-    キー
-==========================================*/
-
-document.addEventListener("keydown",e=>{
-
-    if(e.code==="AltRight"){
-
-        e.preventDefault();
-
-        toggleGalaxy();
-
-    }
-
-});
-
-
-/*==========================================
-    初期化
-==========================================*/
-
-createUI();
-
-createButtons();
-
-console.log("Galaxy UI Loaded");
-
-})();
-/*==========================================
-    アニメーション
-==========================================*/
-
-function animate(){
-
-    if(!Galaxy.paused){
-
-        Galaxy.angle+=Galaxy.speed;
-
-    }
-
-    Galaxy.wheel.style.transform=
-        `rotate(${Galaxy.angle}deg)`;
-
-
-    /*=========================
-        文字は逆回転
-    =========================*/
-
-    Galaxy.buttons.forEach(button=>{
-
-        const label=
-            button.querySelector(".galaxy-label");
-
-        if(label){
-
-            label.style.transform=
-                `translate(-50%,-50%) rotate(${-Galaxy.angle}deg)`;
-
-        }
-
-    });
-
-
-    const centerText=
-        document.getElementById("galaxy-center-text");
-
-    if(centerText){
-
-        centerText.style.transform=
-            `translate(-50%,-50%) rotate(${-Galaxy.angle}deg)`;
-
-    }
-
-    requestAnimationFrame(animate);
-
-}
-
-
-/*==========================================
-    ホバー
-==========================================*/
-
-Galaxy.buttons.forEach(button=>{
-
-    button.addEventListener("mouseenter",()=>{
-
-        Galaxy.paused=true;
-
-        Galaxy.wheel.classList.add("pause");
-
-        Galaxy.wheel.classList.add("galaxy-wheel-hover");
-
-    });
-
-
-    button.addEventListener("mouseleave",()=>{
-
-        Galaxy.paused=false;
-
-        Galaxy.wheel.classList.remove("pause");
-
-        Galaxy.wheel.classList.remove("galaxy-wheel-hover");
-
-    });
-
-});
-
-
-Galaxy.center.addEventListener("mouseenter",()=>{
-
-    Galaxy.paused=true;
-
-    Galaxy.wheel.classList.add("pause");
-
-});
-
-
-Galaxy.center.addEventListener("mouseleave",()=>{
-
-    Galaxy.paused=false;
-
-    Galaxy.wheel.classList.remove("pause");
-
-});
-
-
-/*==========================================
-    開始
-==========================================*/
-
-requestAnimationFrame(animate);
-/*==========================================
-    ボタンエフェクト
-==========================================*/
-
-Galaxy.buttons.forEach(button=>{
-
-    button.addEventListener("mousemove",e=>{
-
-        const rect=button.getBoundingClientRect();
-
-        const x=
-            e.clientX-
-            rect.left-
-            rect.width/2;
-
-        const y=
-            e.clientY-
-            rect.top-
-            rect.height/2;
-
-        button.style.transform=
-
-            `translate(${x*0.08}px,${y*0.08}px)
-             scale(1.15)`;
-
-    });
-
-
-    button.addEventListener("mouseleave",()=>{
-
-        button.style.transform="";
-
-    });
-
-});
-
-
-/*==========================================
-    ON OFF
-==========================================*/
-
-Galaxy.buttons.forEach(button=>{
-
-    button.dataset.enabled="false";
-
-});
-
-
-function setModuleState(button,state){
-
-    button.dataset.enabled=state;
-
-    if(state==="true"){
-
-        button.classList.add("active");
-
-    }else{
-
-        button.classList.remove("active");
-
-    }
-
-}
-
-
-/*==========================================
-    ボタン
-==========================================*/
-
-Galaxy.buttons.forEach(button=>{
-
-    button.addEventListener("click",()=>{
-
-        const enabled=
-            button.dataset.enabled==="true";
-
-        setModuleState(
-
-            button,
-
-            (!enabled).toString()
-
-        );
-
-        console.log(
-
-            button.dataset.module,
-
-            enabled
-                ? "OFF"
-                : "ON"
-
-        );
-
-    });
-
-});
-
-
-/*==========================================
-    中央クリック
-==========================================*/
-
-Galaxy.center.addEventListener("click",()=>{
-
-    toggleGalaxy();
-
-});
-
-
-/*==========================================
-    モジュール接続
-==========================================*/
-
-Galaxy.connect=function(name,callback){
-
-    Galaxy.buttons.forEach(button=>{
-
-        if(button.dataset.module===name){
-
-            button.onclick=()=>{
-
-                callback(button);
-
-            };
-
-        }
-
-    });
-
-};
-
-
-/*==========================================
-    接続例
-==========================================*/
-
-// Galaxy.connect("Combat",()=>{
-//     console.log("Combat");
-// });
-
-// Galaxy.connect("Movement",()=>{
-//     console.log("Movement");
-// });
-
-// Galaxy.connect("Render",()=>{
-//     console.log("Render");
-// });
-
-
-console.log("Galaxy Modules Ready");
-/*==========================================
-    サブメニュー
-==========================================*/
-
-const MODULES={
-
-    Combat:[
-        "KillAura",
-        "Reach",
-        "Velocity",
-        "Critical"
-    ],
-
-    Movement:[
-        "AutoSprint",
-        "Sprint",
-        "Speed",
-        "Step"
-    ],
-
-    Render:[
-        "Crosshair",
-        "Zoom",
-        "FPS",
-        "CPS"
-    ],
-
-    Utility:[
-        "Translator",
-        "Recorder",
-        "Optimizer",
-        "Keystrokes"
-    ],
-
-    Visual:[
-        "ESP",
-        "FullBright",
-        "Tracers",
-        "Nametags"
-    ],
-
-    Player:[
-        "FastPlace",
-        "NoFall",
-        "AutoTool",
-        "ChestStealer"
-    ],
-
-    World:[
-        "Scaffold",
-        "Breaker",
-        "Nuker",
-        "Timer"
-    ]
-
-};
-
-
-/*==========================================
-    現在
-==========================================*/
-
-Galaxy.current="main";
-
-
-/*==========================================
-    メニュー削除
-==========================================*/
-
-function clearButtons(){
-
-    Galaxy.buttons.forEach(b=>b.remove());
-
-    Galaxy.buttons=[];
-
-}
-
-
-/*==========================================
-    メインメニュー
-==========================================*/
-
-function showMain(){
-
-    Galaxy.current="main";
-
-    clearButtons();
-
-    createButtons();
-
-    installButtonEvents();
-
-}
-
-
-/*==========================================
-    サブメニュー
-==========================================*/
-
-function showCategory(name){
-
-    Galaxy.current=name;
-
-    clearButtons();
-
-    const list=MODULES[name];
-
-    if(!list)return;
-
-    const radius=170;
-
-    const total=list.length+1;
-
-    for(let i=0;i<total;i++){
-
-        const angle=(Math.PI*2/total)*i;
-
-        const x=Math.cos(angle)*radius;
-
-        const y=Math.sin(angle)*radius;
-
-        const btn=document.createElement("div");
-
-        btn.className="galaxy-button";
-
-        btn.style.left=`calc(50% + ${x}px)`;
-
-        btn.style.top=`calc(50% + ${y}px)`;
-
-        const text=
-
-            i===total-1
-
-            ? "←戻る"
-
-            : list[i];
-
-        btn.innerHTML=`
-            <span class="galaxy-label">
-                ${text}
-            </span>
-        `;
-
-        btn.dataset.module=text;
-
-        Galaxy.wheel.appendChild(btn);
-
-        Galaxy.buttons.push(btn);
-
-    }
-
-    installButtonEvents();
-
-}
-
-
-/*==========================================
-    イベント
-==========================================*/
-
-function installButtonEvents(){
-
-    Galaxy.buttons.forEach(button=>{
-
-        button.addEventListener("click",()=>{
-
-            const name=button.dataset.module;
-
-            if(name==="←戻る"){
-
-                showMain();
-
-                return;
-
-            }
-
-            if(Galaxy.current==="main"){
-
-                showCategory(name);
-
-                return;
-
-            }
-
-            console.log("Module:",name);
-
+    "use strict";
+
+    if (window.__GalaxyUI?.destroy) window.__GalaxyUI.destroy();
+
+    const Galaxy = {
+        open: false,
+        angle: 0,
+        speed: 0.10,
+        paused: false,
+        raf: 0,
+        ui: null,
+        wheel: null,
+        center: null,
+        buttons: [],
+        current: "main"
+    };
+
+    const CATEGORIES = [
+        "Combat", "Movement", "Render", "Player",
+        "Utility", "World", "Visual", "Settings"
+    ];
+
+    const MODULES = {
+        Combat: ["KillAura", "Reach", "Velocity", "Critical"],
+        Movement: ["AutoSprint", "Sprint", "Speed", "Step"],
+        Render: ["Crosshair", "Zoom", "FPS", "CPS"],
+        Player: ["FastPlace", "AutoTool", "Keystrokes", "Perspective"],
+        Utility: ["Translator", "Recorder", "Optimizer", "Chat"],
+        World: ["Coordinates", "Time", "Biome", "Map"],
+        Visual: ["FullBright", "Particles", "Nametags", "HitEffect"],
+        Settings: ["Theme", "Animation", "Scale", "Keybind"]
+    };
+
+    const escapeHTML = value => String(value).replace(/[&<>\'"]/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;",
+        "'": "&#39;", '"': "&quot;"
+    }[c]));
+
+    function createUI() {
+        const root = document.createElement("div");
+        root.id = "galaxy-ui";
+        root.innerHTML = `
+            <div id="galaxy-overlay"></div>
+            <div id="galaxy-wheel">
+                <div id="galaxy-ring"></div>
+                <div id="galaxy-buttons"></div>
+                <div id="galaxy-center">
+                    <span id="galaxy-center-text">Galaxy</span>
+                </div>
+            </div>`;
+        document.body.appendChild(root);
+        Galaxy.ui = root;
+        Galaxy.wheel = root.querySelector("#galaxy-wheel");
+        Galaxy.center = root.querySelector("#galaxy-center");
+        Galaxy.center.addEventListener("click", () => {
+            Galaxy.current === "main" ? close() : showMain();
         });
+    }
 
-    });
+    function clearButtons() {
+        Galaxy.ui.querySelector("#galaxy-buttons").replaceChildren();
+        Galaxy.buttons.length = 0;
+    }
 
-}
+    function createRadialButtons(items, backButton = false) {
+        clearButtons();
+        const container = Galaxy.ui.querySelector("#galaxy-buttons");
+        const list = backButton ? [...items, "← 戻る"] : items;
+        const radius = 205;
+        const step = (Math.PI * 2) / list.length;
 
+        list.forEach((name, index) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "galaxy-button";
+            button.dataset.module = name;
+            button.dataset.enabled = "false";
 
-/*==========================================
-    初回
-==========================================*/
+            const theta = -Math.PI / 2 + step * index;
+            button.style.left = `calc(50% + ${Math.cos(theta) * radius}px)`;
+            button.style.top = `calc(50% + ${Math.sin(theta) * radius}px)`;
+            button.innerHTML = `<span class="galaxy-label">${escapeHTML(name)}</span>`;
 
-installButtonEvents();
+            button.addEventListener("mouseenter", () => {
+                Galaxy.paused = true;
+                Galaxy.wheel.classList.add("galaxy-wheel-hover");
+            });
+            button.addEventListener("mouseleave", () => {
+                Galaxy.paused = false;
+                Galaxy.wheel.classList.remove("galaxy-wheel-hover");
+            });
+            button.addEventListener("click", event => {
+                event.stopPropagation();
+                if (name === "← 戻る") return showMain();
+                if (Galaxy.current === "main") return showCategory(name);
+                toggleModule(button, name);
+            });
 
+            container.appendChild(button);
+            Galaxy.buttons.push(button);
+        });
+    }
+
+    function showMain() {
+        Galaxy.current = "main";
+        createRadialButtons(CATEGORIES);
+    }
+
+    function showCategory(category) {
+        Galaxy.current = category;
+        createRadialButtons(MODULES[category] || [], true);
+    }
+
+    function toggleModule(button, name) {
+        const enabled = button.dataset.enabled === "true";
+        button.dataset.enabled = String(!enabled);
+        button.classList.toggle("active", !enabled);
+        console.log(`[Galaxy] ${name}: ${!enabled ? "ON" : "OFF"}`);
+    }
+
+    function setOpenState(value) {
+        Galaxy.open = value;
+        Galaxy.ui.classList.toggle("show", value);
+        if (!value) {
+            Galaxy.paused = false;
+            Galaxy.wheel.classList.remove("galaxy-wheel-hover");
+        }
+    }
+
+    const open = () => setOpenState(true);
+    const close = () => setOpenState(false);
+    const toggle = () => setOpenState(!Galaxy.open);
+
+    function animate() {
+        if (Galaxy.open && !Galaxy.paused) Galaxy.angle += Galaxy.speed;
+        Galaxy.wheel.style.transform = `translate(-50%, -50%) rotate(${Galaxy.angle}deg)`;
+
+        Galaxy.buttons.forEach(button => {
+            const label = button.querySelector(".galaxy-label");
+            if (label) label.style.transform = `translate(-50%, -50%) rotate(${-Galaxy.angle}deg)`;
+        });
+        const centerText = Galaxy.center.querySelector("#galaxy-center-text");
+        if (centerText) centerText.style.transform = `translate(-50%, -50%) rotate(${-Galaxy.angle}deg)`;
+
+        Galaxy.raf = requestAnimationFrame(animate);
+    }
+
+    function onKeyDown(event) {
+        if (event.code !== "AltRight" || event.repeat) return;
+        event.preventDefault();
+        event.stopPropagation();
+        toggle();
+    }
+
+    function destroy() {
+        cancelAnimationFrame(Galaxy.raf);
+        document.removeEventListener("keydown", onKeyDown, true);
+        Galaxy.ui?.remove();
+        delete window.__GalaxyUI;
+    }
+
+    function init() {
+        createUI();
+        showMain();
+        document.addEventListener("keydown", onKeyDown, true);
+        Galaxy.raf = requestAnimationFrame(animate);
+
+        window.__GalaxyUI = {
+            open, close, toggle, showMain, showCategory, destroy,
+            setSpeed(value) { Galaxy.speed = Number(value) || 0; },
+            state: Galaxy
+        };
+        console.log("%c[Galaxy UI] Loaded%c 右Altで開閉", "color:#6fdfff;font-weight:bold", "color:inherit");
+    }
+
+    if (document.body) init();
+    else window.addEventListener("DOMContentLoaded", init, { once: true });
+})();
