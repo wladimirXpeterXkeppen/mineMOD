@@ -17,7 +17,21 @@
     function showCategory(category){Galaxy.current=category;setCenter(category,false);createRadialButtons(MODULES[category]||[]);resumeRotation()}
     function showThemes(){Galaxy.current="theme";setCenter("Theme",false);clearButtons();const keys=Object.keys(themes),c=Galaxy.ui.querySelector("#galaxy-buttons"),r=205,step=Math.PI*2/keys.length;keys.forEach((key,i)=>{const name=themes[key].name,b=document.createElement("button");b.type="button";b.className="galaxy-button";b.dataset.theme=key;const a=-Math.PI/2+step*i;b.style.left=`calc(50% + ${Math.cos(a)*r}px)`;b.style.top=`calc(50% + ${Math.sin(a)*r}px)`;b.innerHTML=`<span class="galaxy-label">${esc(name)}</span>`;b.classList.toggle("active",key===Galaxy.theme);b.onclick=e=>{e.stopPropagation();Galaxy.theme=key;applyTheme();showThemes()};b.onmouseenter=()=>{Galaxy.paused=true;Galaxy.wheel.classList.add("galaxy-wheel-hover")};b.onmouseleave=()=>{Galaxy.paused=false;Galaxy.wheel.classList.remove("galaxy-wheel-hover")};c.appendChild(b);Galaxy.buttons.push(b)});resumeRotation()}
     function toggleModule(b,name){const on=b.dataset.enabled==="true";b.dataset.enabled=String(!on);b.classList.toggle("active",!on);console.log(`[Sonnet] ${name}: ${!on?"ON":"OFF"}`)}
-    function setOpen(v){Galaxy.open=v;Galaxy.ui.classList.toggle("show",v);if(!v)resumeRotation()}
+    function setOpen(v){
+        if(v===Galaxy.open)return;
+        if(v){
+            Galaxy.open=true;
+            Galaxy.ui.classList.remove("closing");
+            Galaxy.ui.classList.add("show");
+            resumeRotation();
+        }else{
+            Galaxy.open=false;
+            Galaxy.ui.classList.remove("show");
+            Galaxy.ui.classList.add("closing");
+            resumeRotation();
+            window.setTimeout(()=>{if(!Galaxy.open)Galaxy.ui.classList.remove("closing")},680);
+        }
+    }
     const open=()=>setOpen(true),close=()=>setOpen(false),toggle=()=>setOpen(!Galaxy.open);
     function animate(){if(Galaxy.open&&!Galaxy.paused)Galaxy.angle+=Galaxy.speed;Galaxy.wheel.style.setProperty("--rotation",`${Galaxy.angle}deg`);Galaxy.buttons.forEach(b=>{const l=b.querySelector(".galaxy-label");if(l)l.style.transform=`translate(-50%,-50%) rotate(${-Galaxy.angle}deg)`});Galaxy.raf=requestAnimationFrame(animate)}
     function key(e){if(e.code!=="AltRight"||e.repeat)return;e.preventDefault();e.stopPropagation();toggle()}
