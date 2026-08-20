@@ -1,96 +1,94 @@
-/* Sonnet UI - smooth radial orbit */
+/* Sonnet UI - radial menu + official Minefun-style features + web recorder */
 (() => {
     "use strict";
     if (window.__GalaxyUI?.destroy) window.__GalaxyUI.destroy();
+    if (window.__SonnetFeatures?.destroy) window.__SonnetFeatures.destroy();
 
     const themes={gaming:{name:"Gaming",blue:"#00eaff",green:"#7dff4d",glow:"#00d9ff"},hacker:{name:"Hacker",blue:"#00ff66",green:"#7cff00",glow:"#00ff55"},cyber:{name:"Cyber",blue:"#9b5cff",green:"#00eaff",glow:"#9b5cff"},ice:{name:"Ice",blue:"#8be9ff",green:"#d8fbff",glow:"#5bdcff"},neon:{name:"Neon",blue:"#ff3bd4",green:"#fff04a",glow:"#ff3bd4"}};
     const CATEGORIES=["Combat","Movement","Render","Player","Utility","World","Visual","Settings"];
-    const MODULES={Combat:["KillAura","Reach","Velocity","Critical"],Movement:["AutoSprint","Sprint","Speed","Step"],Render:["Crosshair","Zoom","FPS","CPS"],Player:["FastPlace","AutoTool","Keystrokes","Perspective"],Utility:["Translator","Recorder","Optimizer","Chat"],World:["Coordinates","Time","Biome","Map"],Visual:["FullBright","Particles","Nametags","HitEffect"],Settings:["Theme","Animation","Scale","Keybind"]};
-    const Galaxy={open:false,angle:0,speed:.10,paused:false,raf:0,ui:null,wheel:null,center:null,centerText:null,logo:null,buttons:[],current:"main",theme:localStorage.getItem("galaxy_theme")||"gaming",anim:null,closingTimer:null,radius:205};
+    const MODULES={Combat:["Target Color","Projectile Guide"],Movement:["FPS Booster","Sprint","Speed","Step"],Render:["Crosshair","Zoom","FPS","CPS"],Player:["Keystrokes","Perspective"],Utility:["Recorder","Ad Blocker","Translator","Chat"],World:["Coordinates","Time","Biome","Map"],Visual:["FullBright","Particles","Nametags","HitEffect"],Settings:["Theme","Animation","Scale","Keybind"]};
+
+    const STORAGE="sonnet-settings-v1";
+    const defaults={modules:{Crosshair:false,Zoom:false,FPS:true,CPS:false,Keystrokes:true,"FPS Booster":false,"Target Color":false,"Projectile Guide":false,Recorder:false,"Ad Blocker":false,Translator:false,Chat:false},crosshair:{preset:"default",customURL:"",size:1,targetColor:false},zoom:{power:2.2},keystrokes:{x:1,y:2,size:1,theme:"default",showCPS:false,border:false,borderThickness:.1,borderColour:"#ffffff",pressedBG:"#00cfff",pressedText:"#000000",shadow:true,arrows:false,layout:"wasd",keys:{shift:"ShiftLeft",crouch:"KeyC"}},ui:{theme:localStorage.getItem("galaxy_theme")||"gaming",keybind:"AltRight"}};
+    let saved={};try{saved=JSON.parse(localStorage.getItem(STORAGE)||"{}")}catch{}
+    const data={modules:{...defaults.modules,...(saved.modules||{})},crosshair:{...defaults.crosshair,...(saved.crosshair||{})},zoom:{...defaults.zoom,...(saved.zoom||{})},keystrokes:{...defaults.keystrokes,...(saved.keystrokes||{})},ui:{...defaults.ui,...(saved.ui||{})}};
+    data.keystrokes.keys={...defaults.keystrokes.keys,...((saved.keystrokes&&saved.keystrokes.keys)||{})};
+    function save(){localStorage.setItem(STORAGE,JSON.stringify(data));localStorage.setItem("galaxy_theme",data.ui.theme)}
+
+    /* Official Crosshair family: image presets + SVG presets + 0.2-4 size multiplier. */
+    const crosshairPresets={
+        default:{label:"Default",style:{backgroundColor:"#fff",border:"2px solid #111",borderRadius:"70.5px",width:1,height:1}},
+        plus1:{label:"Plus 1",image:"https://celestarminefun.github.io/crosshairs/plus1.png"},
+        plus2:{label:"Plus 2",image:"https://celestarminefun.github.io/crosshairs/plus2.png"},
+        plus3:{label:"Plus 3",image:"https://celestarminefun.github.io/crosshairs/plus3.png"},
+        plus4:{label:"Plus 4",image:"https://celestarminefun.github.io/crosshairs/plus4.png"},
+        neo_dot:{label:"Neo Dot",svg:`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><line x1="16" y1="2" x2="16" y2="10" stroke="#00cfff" stroke-width="2" stroke-linecap="round"/><line x1="16" y1="22" x2="16" y2="30" stroke="#00cfff" stroke-width="2" stroke-linecap="round"/><line x1="2" y1="16" x2="10" y2="16" stroke="#00cfff" stroke-width="2" stroke-linecap="round"/><line x1="22" y1="16" x2="30" y2="16" stroke="#00cfff" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="16" r="2" fill="#00cfff"/></svg>`},
+        sniper:{label:"Sniper",svg:`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14" stroke="#00ff88" stroke-width="1" fill="none" opacity=".6"/><circle cx="16" cy="16" r="8" stroke="#00ff88" stroke-width=".8" fill="none"/><line x1="16" y1="2" x2="16" y2="10" stroke="#00ff88"/><line x1="16" y1="22" x2="16" y2="30" stroke="#00ff88"/><line x1="2" y1="16" x2="10" y2="16" stroke="#00ff88"/><line x1="22" y1="16" x2="30" y2="16" stroke="#00ff88"/><circle cx="16" cy="16" r="1.5" fill="#00ff88"/></svg>`},
+        halo:{label:"Halo",svg:`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><ellipse cx="16" cy="16" rx="13" ry="5" stroke="#a78bfa" stroke-width="1.5" fill="none"/><circle cx="16" cy="16" r="3" fill="#a78bfa"/><line x1="16" y1="13" x2="16" y2="6" stroke="#a78bfa"/><line x1="16" y1="19" x2="16" y2="26" stroke="#a78bfa"/></svg>`},
+        star_aim:{label:"Star Aim",svg:`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><polygon points="16,3 18,13 28,13 20,19 23,29 16,23 9,29 12,19 4,13 14,13" stroke="#ffd700" stroke-width=".8" fill="rgba(255,215,0,.15)"/><circle cx="16" cy="16" r="2.5" fill="#ffd700"/><circle cx="16" cy="16" r="1" fill="#fff"/></svg>`},
+        custom:{label:"Custom URL"}
+    };
+
+    const Galaxy={open:false,angle:0,speed:.10,paused:false,raf:0,ui:null,wheel:null,center:null,centerText:null,logo:null,buttons:[],current:"main",theme:data.ui.theme,anim:null,closingTimer:null,radius:205};
     const esc=v=>String(v).replace(/[&<>\'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
-
-    function applyTheme(){const t=themes[Galaxy.theme]||themes.gaming;Galaxy.ui.style.setProperty("--theme-blue",t.blue);Galaxy.ui.style.setProperty("--theme-green",t.green);Galaxy.ui.style.setProperty("--theme-glow",t.glow);Galaxy.ui.dataset.theme=Galaxy.theme;localStorage.setItem("galaxy_theme",Galaxy.theme)}
-
-    function createUI(){
-        const root=document.createElement("div");root.id="galaxy-ui";
-        root.innerHTML=`<div id="galaxy-overlay"></div><div id="galaxy-wheel"><div id="galaxy-ring"></div><div id="galaxy-buttons"></div></div><div id="galaxy-center"><div id="galaxy-center-logo" aria-label="Sonnet"><span></span><i></i><b></b></div><span id="galaxy-center-text"></span></div>`;
-        document.body.appendChild(root);Galaxy.ui=root;Galaxy.wheel=root.querySelector("#galaxy-wheel");Galaxy.center=root.querySelector("#galaxy-center");Galaxy.centerText=root.querySelector("#galaxy-center-text");Galaxy.logo=root.querySelector("#galaxy-center-logo");
-        Galaxy.center.addEventListener("click",()=>Galaxy.current==="main"?close():showMain());applyTheme();
-    }
-
+    function applyTheme(){const t=themes[Galaxy.theme]||themes.gaming;Galaxy.ui.style.setProperty("--theme-blue",t.blue);Galaxy.ui.style.setProperty("--theme-green",t.green);Galaxy.ui.style.setProperty("--theme-glow",t.glow);Galaxy.ui.dataset.theme=Galaxy.theme;data.ui.theme=Galaxy.theme;save()}
+    function createUI(){const root=document.createElement("div");root.id="galaxy-ui";root.innerHTML=`<div id="galaxy-overlay"></div><div id="galaxy-wheel"><div id="galaxy-ring"></div><div id="galaxy-buttons"></div></div><div id="galaxy-center"><div id="galaxy-center-logo" aria-label="Sonnet"><span></span><i></i><b></b></div><span id="galaxy-center-text"></span></div>`;document.body.appendChild(root);Galaxy.ui=root;Galaxy.wheel=root.querySelector("#galaxy-wheel");Galaxy.center=root.querySelector("#galaxy-center");Galaxy.centerText=root.querySelector("#galaxy-center-text");Galaxy.logo=root.querySelector("#galaxy-center-logo");Galaxy.center.addEventListener("click",()=>Galaxy.current==="main"?close():showMain());applyTheme()}
     function clearButtons(){Galaxy.ui.querySelector("#galaxy-buttons").replaceChildren();Galaxy.buttons.length=0}
     function resumeRotation(){Galaxy.paused=false;Galaxy.wheel.classList.remove("galaxy-wheel-hover")}
     function setCenter(title,isMain=false){Galaxy.centerText.textContent=isMain?"":title;Galaxy.ui.classList.toggle("sub-center",!isMain)}
-
-    function addButton(name,i,count,handler){
-        const b=document.createElement("button");b.type="button";b.className="galaxy-button";b.dataset.module=name;b.dataset.enabled="false";
-        b.innerHTML=`<span class="galaxy-label">${esc(name)}</span>`;
-        b._slot=i;b._count=count;b._baseAngle=-Math.PI/2+(Math.PI*2/count)*i;
-        b.addEventListener("mouseenter",()=>{Galaxy.paused=true;Galaxy.wheel.classList.add("galaxy-wheel-hover")});
-        b.addEventListener("mouseleave",()=>{Galaxy.paused=false;Galaxy.wheel.classList.remove("galaxy-wheel-hover")});
-        b.addEventListener("click",e=>{e.stopPropagation();handler(b,name)});
-        Galaxy.ui.querySelector("#galaxy-buttons").appendChild(b);Galaxy.buttons.push(b);
-    }
-
-    function createRadialButtons(items){
-        clearButtons();items.forEach((name,i)=>addButton(name,i,items.length,(b,n)=>{if(Galaxy.current==="main")showCategory(n);else if(n==="Theme")showThemes();else toggleModule(b,n)}));
-    }
-
+    function addButton(name,i,count,handler){const b=document.createElement("button");b.type="button";b.className="galaxy-button";b.dataset.module=name;b.dataset.enabled=String(!!data.modules[name]);b.classList.toggle("active",!!data.modules[name]);b.innerHTML=`<span class="galaxy-label">${esc(name)}</span>`;b._baseAngle=-Math.PI/2+(Math.PI*2/count)*i;b.addEventListener("mouseenter",()=>{Galaxy.paused=true;Galaxy.wheel.classList.add("galaxy-wheel-hover")});b.addEventListener("mouseleave",()=>{Galaxy.paused=false;Galaxy.wheel.classList.remove("galaxy-wheel-hover")});b.addEventListener("click",e=>{e.stopPropagation();handler(b,name)});Galaxy.ui.querySelector("#galaxy-buttons").appendChild(b);Galaxy.buttons.push(b)}
+    function createRadialButtons(items){clearButtons();items.forEach((name,i)=>addButton(name,i,items.length,(b,n)=>{if(Galaxy.current==="main")showCategory(n);else if(n==="Theme")showThemes();else if(["Crosshair","Zoom","Keystrokes"].includes(n))showFeatureSettings(n);else if(n==="Recorder")openRecorder();else toggleFeature(n,b)}))}
     function showMain(){Galaxy.current="main";setCenter("",true);createRadialButtons(CATEGORIES);resumeRotation()}
     function showCategory(category){Galaxy.current=category;setCenter(category,false);createRadialButtons(MODULES[category]||[]);resumeRotation()}
-    function showThemes(){
-        Galaxy.current="theme";setCenter("Theme",false);clearButtons();
-        const keys=Object.keys(themes);keys.forEach((key,i)=>addButton(themes[key].name,i,keys.length,(b)=>{Galaxy.theme=key;applyTheme();showThemes()}));
-        Galaxy.buttons.forEach((b,i)=>{b.dataset.theme=keys[i];b.classList.toggle("active",keys[i]===Galaxy.theme)});resumeRotation();
+    function showThemes(){Galaxy.current="theme";setCenter("Theme",false);clearButtons();const keys=Object.keys(themes);keys.forEach((key,i)=>addButton(themes[key].name,i,keys.length,(b)=>{Galaxy.theme=key;applyTheme();showThemes()}));Galaxy.buttons.forEach((b,i)=>b.classList.toggle("active",keys[i]===Galaxy.theme));resumeRotation()}
+
+    let featureStyle=null;
+    function ensureFeatureStyle(){if(featureStyle)return;featureStyle=document.createElement("style");featureStyle.textContent=`
+#sonnet-crosshair{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:2147483646;background-position:center;background-repeat:no-repeat;background-size:contain}
+#sonnet-ks{position:fixed;bottom:2vh;left:1vw;z-index:2147483645;display:flex;flex-direction:column;gap:.5vh;user-select:none;font-family:Arial,sans-serif}.sonnet-row{display:flex;gap:.5vh;justify-content:center}.sonnet-key{width:4.5vh;height:4.5vh;background:rgba(4,8,20,.85);border-radius:.7vh;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.3vh;font-weight:600;border:1px solid rgba(0,207,255,.2);box-shadow:0 0 8px rgba(0,207,255,.1);transition:all .07s;backdrop-filter:blur(6px)}.sonnet-key.active{background:#00cfff!important;color:#000!important;border-color:#00cfff!important;box-shadow:0 0 16px rgba(0,207,255,.5);transform:scale(.94)}
+#sonnet-recorder{position:fixed;right:18px;bottom:18px;z-index:2147483647;background:rgba(4,8,20,.94);border:1px solid rgba(0,207,255,.35);border-radius:12px;padding:12px;color:#fff;font:13px Arial,sans-serif;box-shadow:0 0 24px rgba(0,207,255,.2);display:none;min-width:230px}#sonnet-recorder button,#sonnet-recorder select{margin:4px;padding:6px 9px;border-radius:7px;border:1px solid rgba(0,207,255,.3);background:rgba(0,207,255,.08);color:#fff}#sonnet-recorder button:hover{background:rgba(0,207,255,.2)}#sonnet-rec-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff405c;margin-right:6px;box-shadow:0 0 10px #ff405c}
+#sonnet-settings{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;width:min(420px,88vw);max-height:78vh;overflow:auto;background:rgba(4,8,20,.96);border:1px solid rgba(0,207,255,.35);border-radius:16px;padding:18px;color:#fff;font:13px Arial,sans-serif;box-shadow:0 0 45px rgba(0,207,255,.25);display:none}#sonnet-settings h3{margin:0 0 14px;color:#00cfff}#sonnet-settings label{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:10px 0;color:#bcd}#sonnet-settings input[type=range]{width:170px}#sonnet-settings input[type=text],#sonnet-settings select,#sonnet-settings input[type=color]{background:#07101d;color:#fff;border:1px solid #16415b;border-radius:6px;padding:5px}#sonnet-settings .close{float:right;background:none;border:0;color:#fff;font-size:20px;cursor:pointer}
+`;document.head.appendChild(featureStyle)}
+    function svgData(svg){return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`}
+    function renderCrosshair(){ensureFeatureStyle();let el=document.getElementById("sonnet-crosshair");if(!data.modules.Crosshair){el?.remove();return}if(!el){el=document.createElement("div");el.id="sonnet-crosshair";document.body.appendChild(el)}const s=data.crosshair,p=crosshairPresets[s.preset];el.style.width=`${32*s.size}px`;el.style.height=`${32*s.size}px`;el.style.backgroundImage="";el.style.backgroundColor="transparent";el.style.border="none";el.style.borderRadius="0";if(s.preset==="custom"&&s.customURL)el.style.backgroundImage=`url("${s.customURL}")`;else if(p?.image)el.style.backgroundImage=`url("${p.image}")`;else if(p?.svg)el.style.backgroundImage=`url("${svgData(p.svg)}")`;else if(p?.style){el.style.backgroundColor=p.style.backgroundColor;el.style.border=p.style.border;el.style.borderRadius=p.style.borderRadius;el.style.width=`${p.style.width*s.size}px`;el.style.height=`${p.style.height*s.size}px`}}
+    function targetColorTick(){const el=document.getElementById("sonnet-crosshair");if(!el||!data.modules["Target Color"]||!data.crosshair.targetColor)return;const hit=document.elementFromPoint(innerWidth/2,innerHeight/2);const player=hit?.closest?.('[class*="player"],[class*="Player"],[data-player],.entity-player');el.style.filter=player?"sepia(1) saturate(12) hue-rotate(315deg) brightness(1.4)":"none"}
+    function showFeatureSettings(type){ensureFeatureStyle();let box=document.getElementById("sonnet-settings");if(!box){box=document.createElement("div");box.id="sonnet-settings";document.body.appendChild(box)}box.style.display="block";box.innerHTML=`<button class="close">×</button><h3>${esc(type)}</h3><div id="sonnet-settings-body"></div>`;box.querySelector(".close").onclick=()=>box.style.display="none";const body=box.querySelector("#sonnet-settings-body");
+        if(type==="Crosshair"){body.innerHTML=`<label>Enabled <input id="f-on" type="checkbox" ${data.modules.Crosshair?"checked":""}></label><label>Preset <select id="f-preset">${Object.entries(crosshairPresets).map(([k,v])=>`<option value="${k}">${esc(v.label)}</option>`).join("")}</select></label><label>Custom URL <input id="f-url" type="text"></label><label>Size <input id="f-size" type="range" min="0.2" max="4" step="0.1" value="${data.crosshair.size}"></label><label>Target Color <input id="f-target" type="checkbox" ${data.crosshair.targetColor?"checked":""}></label>`;body.querySelector("#f-preset").value=data.crosshair.preset;body.querySelector("#f-url").value=data.crosshair.customURL;body.querySelector("#f-on").onchange=e=>{data.modules.Crosshair=e.target.checked;save();renderCrosshair()};body.querySelector("#f-preset").onchange=e=>{data.crosshair.preset=e.target.value;save();renderCrosshair()};body.querySelector("#f-url").onchange=e=>{data.crosshair.customURL=e.target.value;save();renderCrosshair()};body.querySelector("#f-size").oninput=e=>{data.crosshair.size=+e.target.value;save();renderCrosshair()};body.querySelector("#f-target").onchange=e=>{data.crosshair.targetColor=e.target.checked;save()}}
+        if(type==="Zoom"){body.innerHTML=`<label>Enabled <input id="z-on" type="checkbox" ${data.modules.Zoom?"checked":""}></label><label>Zoom Power <input id="z-power" type="range" min="1.2" max="5" step="0.1" value="${data.zoom.power}"></label><div>Hold <b>V</b> to zoom</div>`;body.querySelector("#z-on").onchange=e=>{data.modules.Zoom=e.target.checked;save();applyZoom()};body.querySelector("#z-power").oninput=e=>{data.zoom.power=+e.target.value;save();applyZoom()}}
+        if(type==="Keystrokes"){body.innerHTML=`<label>Enabled <input id="k-on" type="checkbox" ${data.modules.Keystrokes?"checked":""}></label><label>Size <input id="k-size" type="range" min=".5" max="2" step=".1" value="${data.keystrokes.size}"></label><label>Show CPS <input id="k-cps" type="checkbox" ${data.keystrokes.showCPS?"checked":""}></label><label>Pressed BG <input id="k-bg" type="color" value="${data.keystrokes.pressedBG}"></label>`;body.querySelector("#k-on").onchange=e=>{data.modules.Keystrokes=e.target.checked;save();renderKeystrokes()};body.querySelector("#k-size").oninput=e=>{data.keystrokes.size=+e.target.value;save();renderKeystrokes()};body.querySelector("#k-cps").onchange=e=>{data.keystrokes.showCPS=e.target.checked;save();renderKeystrokes()};body.querySelector("#k-bg").onchange=e=>{data.keystrokes.pressedBG=e.target.value;save()}}
     }
 
-    function toggleModule(b,name){const on=b.dataset.enabled==="true";b.dataset.enabled=String(!on);b.classList.toggle("active",!on);console.log(`[Sonnet] ${name}: ${!on?"ON":"OFF"}`)}
+    let zooming=false;
+    function applyZoom(){const canvas=document.querySelector(".game-canvas");if(!canvas)return;if(!data.modules.Zoom){canvas.style.transform="";return}canvas.style.transformOrigin="center center";canvas.style.transition="transform .15s ease";canvas.style.transform=zooming?`scale(${data.zoom.power||2.2})`:"scale(1)"}
+    function zoomKey(e){if(e.key.toLowerCase()==="v"&&data.modules.Zoom){zooming=true;applyZoom()}}
+    function zoomUp(e){if(e.key.toLowerCase()==="v"){zooming=false;applyZoom()}}
 
+    let fpsDiv=null,cpsDiv=null,frames=0,lastFPS=performance.now(),cpsClicks=[];
+    function injectStats(){const stats=document.querySelector(".chat .stats");if(!stats)return;if(data.modules.FPS&&!stats.querySelector(".minefun-fps")){fpsDiv=document.createElement("div");fpsDiv.className="minefun-fps";fpsDiv.innerHTML='<span class="coord-symbol">FPS</span><span class="fps-value">0</span>';stats.appendChild(fpsDiv)}if(data.modules.CPS&&!stats.querySelector(".minefun-cps")){cpsDiv=document.createElement("div");cpsDiv.className="minefun-cps";cpsDiv.innerHTML='<span class="coord-symbol">CPS</span><span class="cps-value">0</span>';stats.appendChild(cpsDiv)}if(!data.modules.FPS){fpsDiv?.remove();fpsDiv=null}if(!data.modules.CPS){cpsDiv?.remove();cpsDiv=null}}
+    function statsLoop(now){frames++;if(now-lastFPS>=1000){const fps=Math.round(frames*1000/(now-lastFPS));frames=0;lastFPS=now;if(fpsDiv?.querySelector(".fps-value"))fpsDiv.querySelector(".fps-value").textContent=fps}const n=Date.now();cpsClicks=cpsClicks.filter(t=>n-t<=1000);if(cpsDiv?.querySelector(".cps-value"))cpsDiv.querySelector(".cps-value").textContent=cpsClicks.length;requestAnimationFrame(statsLoop)}
+
+    function renderKeystrokes(){ensureFeatureStyle();let ks=document.getElementById("sonnet-ks");if(!data.modules.Keystrokes){ks?.remove();return}if(!ks){ks=document.createElement("div");ks.id="sonnet-ks";document.body.appendChild(ks)}ks.style.transform=`scale(${data.keystrokes.size})`;ks.innerHTML='<div class="sonnet-row"><div class="sonnet-key" data-key="KeyW">W</div></div><div class="sonnet-row"><div class="sonnet-key" data-key="KeyA">A</div><div class="sonnet-key" data-key="KeyS">S</div><div class="sonnet-key" data-key="KeyD">D</div></div><div class="sonnet-row"><div class="sonnet-key" data-key="LMB">LMB</div><div class="sonnet-key" data-key="RMB">RMB</div></div>'}
+    function keyDown(e){if(!data.modules.Keystrokes)return;document.querySelector(`#sonnet-ks [data-key="${e.code}"]`)?.classList.add("active")}
+    function keyUp(e){document.querySelector(`#sonnet-ks [data-key="${e.code}"]`)?.classList.remove("active")}
+    function mouseDown(e){cpsClicks.push(Date.now());if(!data.modules.Keystrokes)return;document.querySelector(`#sonnet-ks [data-key="${e.button===0?"LMB":"RMB"}"]`)?.classList.add("active")}
+    function mouseUp(e){document.querySelector(`#sonnet-ks [data-key="${e.button===0?"LMB":"RMB"}"]`)?.classList.remove("active")}
+
+    let recorder=null,recorded=[];
+    function recorderUI(){ensureFeatureStyle();let r=document.getElementById("sonnet-recorder");if(r)return r;r=document.createElement("div");r.id="sonnet-recorder";r.innerHTML='<div><span id="sonnet-rec-dot"></span><b>Sonnet Recorder</b></div><select id="sr-fps"><option value="60">60 FPS</option><option value="30">30 FPS</option></select><button id="sr-start">Start</button><button id="sr-stop">Stop</button><button id="sr-save">Save</button>';document.body.appendChild(r);r.querySelector("#sr-start").onclick=startRecording;r.querySelector("#sr-stop").onclick=stopRecording;r.querySelector("#sr-save").onclick=saveRecording;return r}
+    function openRecorder(){const r=recorderUI();r.style.display="block"}
+    async function startRecording(){if(recorder?.state==="recording")return;try{const stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:+document.getElementById("sr-fps").value||60},audio:true});recorded=[];const type=MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")?"video/webm;codecs=vp9,opus":"video/webm";recorder=new MediaRecorder(stream,{mimeType:type});recorder.ondataavailable=e=>e.data.size&&recorded.push(e.data);recorder.onstop=()=>stream.getTracks().forEach(t=>t.stop());recorder.start(250);document.getElementById("sr-start").textContent="Recording…"}catch(e){console.warn("[Sonnet Recorder]",e)}}
+    function stopRecording(){if(recorder?.state==="recording"){recorder.stop();document.getElementById("sr-start").textContent="Start"}}
+    function saveRecording(){if(!recorded.length)return;const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(recorded,{type:"video/webm"}));a.download=`sonnet-${new Date().toISOString().replace(/[:.]/g,"-")}.webm`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)}
+
+    function toggleFeature(name,b){if(!(name in data.modules))data.modules[name]=false;data.modules[name]=!data.modules[name];b.dataset.enabled=String(data.modules[name]);b.classList.toggle("active",data.modules[name]);save();if(name==="Crosshair")renderCrosshair();if(name==="Keystrokes")renderKeystrokes();if(name==="Zoom")applyZoom();if(name==="FPS"||name==="CPS")injectStats();if(name==="Recorder")openRecorder()}
+    function open(){setOpen(true)}function close(){setOpen(false)}function toggle(){setOpen(!Galaxy.open)}
     function beginOpenMotion(){Galaxy.anim={type:"open",start:performance.now(),duration:1150,startRadius:0,endRadius:205,startSpeed:7.5,endSpeed:.10};Galaxy.radius=0}
-    function beginCloseMotion(){Galaxy.anim={type:"close",start:performance.now(),duration:720,startRadius:Galaxy.radius,endRadius:0,startSpeed:.10,endSpeed:7.0}}
-
-    function setOpen(v){
-        if(v===Galaxy.open)return;
-        if(v){
-            if(Galaxy.closingTimer){clearTimeout(Galaxy.closingTimer);Galaxy.closingTimer=null}
-            Galaxy.open=true;Galaxy.ui.classList.remove("closing");Galaxy.ui.classList.add("show");resumeRotation();beginOpenMotion();
-        }else{
-            Galaxy.open=false;Galaxy.ui.classList.remove("show");Galaxy.ui.classList.add("closing");resumeRotation();beginCloseMotion();
-            Galaxy.closingTimer=setTimeout(()=>{if(!Galaxy.open){Galaxy.ui.classList.remove("closing");Galaxy.anim=null;Galaxy.radius=0}},760);
-        }
-    }
-    const open=()=>setOpen(true),close=()=>setOpen(false),toggle=()=>setOpen(!Galaxy.open);
-
-    function smoothstep(t){return t*t*(3-2*t)}
-    function easeOutCubic(t){return 1-Math.pow(1-t,3)}
-
-    function animate(now){
-        if(Galaxy.anim&&!Galaxy.paused){
-            const a=Galaxy.anim,p=Math.min(1,(now-a.start)/a.duration),q=smoothstep(p);
-            Galaxy.radius=a.startRadius+(a.endRadius-a.startRadius)*q;
-            const speed=a.startSpeed+(a.endSpeed-a.startSpeed)*easeOutCubic(p);
-            Galaxy.speed=speed;
-            Galaxy.angle+=speed;
-            if(p>=1){Galaxy.anim=null;Galaxy.radius=a.endRadius;Galaxy.speed=.10}
-        }else if(Galaxy.open&&!Galaxy.paused){
-            Galaxy.angle+=Galaxy.speed;
-        }
-
-        // サブピクセルのleft/top更新による微細なプルプルを防ぐため、
-        // ボタンは全て50%基準のtranslate3dで位置を動かす。
-        // wheel自体は回転させないので、文字も絶対に回転しない。
-        Galaxy.buttons.forEach(b=>{
-            const angle=b._baseAngle+Galaxy.angle*Math.PI/180;
-            const x=Math.cos(angle)*Galaxy.radius;
-            const y=Math.sin(angle)*Galaxy.radius;
-            b.style.setProperty("--orbit-x",`${x.toFixed(3)}px`);
-            b.style.setProperty("--orbit-y",`${y.toFixed(3)}px`);
-        });
-        Galaxy.raf=requestAnimationFrame(animate);
-    }
-
-    function key(e){if(e.code!=="AltRight"||e.repeat)return;e.preventDefault();e.stopPropagation();toggle()}
-    function destroy(){cancelAnimationFrame(Galaxy.raf);if(Galaxy.closingTimer)clearTimeout(Galaxy.closingTimer);document.removeEventListener("keydown",key,true);Galaxy.ui?.remove();delete window.__GalaxyUI}
-    function init(){createUI();showMain();document.addEventListener("keydown",key,true);Galaxy.raf=requestAnimationFrame(animate);window.__GalaxyUI={open,close,toggle,showMain,showCategory,showThemes,destroy,setTheme(k){if(themes[k]){Galaxy.theme=k;applyTheme()}},themes,state:Galaxy};console.log("%c[Sonnet UI] Loaded%c 右Altで開閉 / 中央クリックで戻る","color:#6fdfff;font-weight:bold","color:inherit")}
+    function beginCloseMotion(){Galaxy.anim={type:"close",start:performance.now(),duration:720,startRadius:Galaxy.radius,endRadius:0,startSpeed:.10,endSpeed:7}}
+    function setOpen(v){if(v===Galaxy.open)return;if(v){if(Galaxy.closingTimer)clearTimeout(Galaxy.closingTimer);Galaxy.open=true;Galaxy.ui.classList.remove("closing");Galaxy.ui.classList.add("show");resumeRotation();beginOpenMotion()}else{Galaxy.open=false;Galaxy.ui.classList.remove("show");Galaxy.ui.classList.add("closing");resumeRotation();beginCloseMotion();Galaxy.closingTimer=setTimeout(()=>{if(!Galaxy.open){Galaxy.ui.classList.remove("closing");Galaxy.anim=null;Galaxy.radius=0}},760)}}
+    function smoothstep(t){return t*t*(3-2*t)}function easeOutCubic(t){return 1-Math.pow(1-t,3)}
+    function animate(now){if(Galaxy.anim&&!Galaxy.paused){const a=Galaxy.anim,p=Math.min(1,(now-a.start)/a.duration),q=smoothstep(p);Galaxy.radius=a.startRadius+(a.endRadius-a.startRadius)*q;Galaxy.speed=a.startSpeed+(a.endSpeed-a.startSpeed)*easeOutCubic(p);Galaxy.angle+=Galaxy.speed;if(p>=1){Galaxy.anim=null;Galaxy.radius=a.endRadius;Galaxy.speed=.10}}else if(Galaxy.open&&!Galaxy.paused)Galaxy.angle+=Galaxy.speed;Galaxy.buttons.forEach(b=>{const ang=b._baseAngle+Galaxy.angle*Math.PI/180;b.style.setProperty("--orbit-x",`${(Math.cos(ang)*Galaxy.radius).toFixed(3)}px`);b.style.setProperty("--orbit-y",`${(Math.sin(ang)*Galaxy.radius).toFixed(3)}px`)});if(data.modules["Target Color"])targetColorTick();Galaxy.raf=requestAnimationFrame(animate)}
+    function key(e){if(e.code!==data.ui.keybind||e.repeat)return;e.preventDefault();e.stopPropagation();toggle()}
+    function destroy(){cancelAnimationFrame(Galaxy.raf);if(Galaxy.closingTimer)clearTimeout(Galaxy.closingTimer);document.removeEventListener("keydown",key,true);document.removeEventListener("keydown",zoomKey,true);document.removeEventListener("keyup",zoomUp,true);document.removeEventListener("keydown",keyDown);document.removeEventListener("keyup",keyUp);document.removeEventListener("mousedown",mouseDown);document.removeEventListener("mouseup",mouseUp);Galaxy.ui?.remove();document.getElementById("sonnet-crosshair")?.remove();document.getElementById("sonnet-ks")?.remove();document.getElementById("sonnet-recorder")?.remove();document.getElementById("sonnet-settings")?.remove();delete window.__GalaxyUI;delete window.__SonnetFeatures}
+    function init(){createUI();showMain();ensureFeatureStyle();renderCrosshair();renderKeystrokes();injectStats();document.addEventListener("keydown",key,true);document.addEventListener("keydown",zoomKey,true);document.addEventListener("keyup",zoomUp,true);document.addEventListener("keydown",keyDown);document.addEventListener("keyup",keyUp);document.addEventListener("mousedown",mouseDown);document.addEventListener("mouseup",mouseUp);setInterval(injectStats,250);requestAnimationFrame(statsLoop);Galaxy.raf=requestAnimationFrame(animate);window.__GalaxyUI={open,close,toggle,showMain,showCategory,showThemes,showFeatureSettings,destroy,setTheme(k){if(themes[k]){Galaxy.theme=k;applyTheme()}},themes,state:Galaxy};window.__SonnetFeatures={data,save,renderCrosshair,renderKeystrokes,applyZoom,openRecorder,destroy};console.log("%c[Sonnet UI] Loaded%c 右Altで開閉 / 中央クリックで戻る / 設定は自動保存","color:#6fdfff;font-weight:bold","color:inherit")}
     if(document.body)init();else window.addEventListener("DOMContentLoaded",init,{once:true});
 })();
