@@ -112,14 +112,24 @@ html.mm-fps-effects-3 *{box-shadow:none!important;text-shadow:none!important;ani
     return `<div class="toggle"><span>${label}<small>${desc}</small></span><button class="level" data-opt="${name}" data-value="${value}">${LEVELS[value]||"ON"}</button></div>`;
   }
 
-  function panel(){
-    if(document.getElementById("minemod-fps-panel"))return;
-    const p=document.createElement("div");p.id="minemod-fps-panel";document.body.appendChild(p);
-    p.onclick=()=>{if(S.display==="compact")setDisplay("full")};render();
+  function ensurePanel(){
+    let p=document.getElementById("minemod-fps-panel");
+    if(p)return p;
+    p=document.createElement("div");p.id="minemod-fps-panel";document.body.appendChild(p);
+    p.onclick=()=>{if(S.display==="compact")setDisplay("full")};
+    return p;
   }
 
+  function panel(){ensurePanel();render()}
+
   function render(){
-    const p=document.getElementById("minemod-fps-panel");if(!p)return;
+    let p=document.getElementById("minemod-fps-panel");
+    // Booster OFF + compact/minimal display means the FPS Booster UI is completely hidden.
+    if(!S.enabled&&S.display==="compact"){
+      p?.remove();
+      return;
+    }
+    p=ensurePanel();
     const name=MODES[S.mode]||"Performance";
     p.className=(S.display==="compact"?"compact ":"full ")+(S.level>=3?"ultra":"performance");
     if(S.display==="compact"){p.innerHTML=`<span class="dot"></span>${name} · ${Math.round(S.fps||0)} FPS`;return}
@@ -144,7 +154,13 @@ html.mm-fps-effects-3 *{box-shadow:none!important;text-shadow:none!important;ani
       <div class="hint">各項目をクリックして OFF / LIGHT / MEDIUM / STRONG を切替</div>`;
     p.querySelector('[data-a="mode"]').onclick=e=>{e.stopPropagation();cycle()};
     p.querySelector('[data-a="display"]').onclick=e=>{e.stopPropagation();setDisplay("compact")};
-    p.querySelector('[data-a="power"]').onclick=e=>{e.stopPropagation();S.enabled=!S.enabled;if(!S.enabled){webgl(0);effects(0);timerGuard(0);consoleMute(false)}else apply(S.mode)};
+    p.querySelector('[data-a="power"]').onclick=e=>{
+      e.stopPropagation();
+      S.enabled=!S.enabled;
+      if(!S.enabled){webgl(0);effects(0);timerGuard(0);consoleMute(false)}
+      else apply(S.mode);
+      render();
+    };
     p.querySelectorAll('[data-opt]').forEach(b=>b.onclick=e=>{
       e.stopPropagation();
       const n=b.dataset.opt;
@@ -154,7 +170,10 @@ html.mm-fps-effects-3 *{box-shadow:none!important;text-shadow:none!important;ani
     });
   }
 
-  function setDisplay(v){S.display=v==="full"?"full":"compact";render()}
+  function setDisplay(v){
+    S.display=v==="full"?"full":"compact";
+    render();
+  }
   function level(n){S.level=Math.max(0,Math.min(3,n));document.documentElement.classList.remove("mm-fps-1","mm-fps-2","mm-fps-3");if(S.enabled&&S.level)document.documentElement.classList.add("mm-fps-"+S.level);render()}
 
   function apply(m){
@@ -174,7 +193,11 @@ html.mm-fps-effects-3 *{box-shadow:none!important;text-shadow:none!important;ani
     old.forEach((b,i)=>b._baseAngle=-Math.PI/2+(Math.PI*2/count)*i);
     const b=document.createElement("button");b.type="button";b.className="galaxy-button";b.dataset.module="FPS Booster";b.dataset.enabled="true";b.innerHTML='<span class="galaxy-label">FPS Booster</span>';b._baseAngle=-Math.PI/2+(Math.PI*2/count)*old.length;
     b.addEventListener("mouseenter",()=>{G.paused=true});b.addEventListener("mouseleave",()=>{G.paused=false});
-    b.addEventListener("click",e=>{e.stopPropagation();setDisplay("full")});
+    b.addEventListener("click",e=>{
+      e.stopPropagation();
+      ensurePanel();
+      setDisplay("full");
+    });
     host.appendChild(b);G.buttons.push(b);
   }
 
