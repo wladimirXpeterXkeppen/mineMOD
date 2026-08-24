@@ -3,7 +3,7 @@
   "use strict";
   if(window.__MineModFPSBooster?.destroy)window.__MineModFPSBooster.destroy();
 
-  const S={enabled:true,mode:"performance",level:2,display:"compact",raf:0,last:performance.now(),samples:[],fps:0,patched:false,origGetContext:HTMLCanvasElement.prototype.getContext};
+  const S={enabled:true,mode:"performance",level:2,display:"compact",raf:0,last:performance.now(),samples:[],fps:0,frames:0,patched:false,origGetContext:HTMLCanvasElement.prototype.getContext};
   const MODES={adaptive:"Adaptive",balanced:"Balanced",performance:"Performance",ultra:"Ultra"};
 
   function webgl(){
@@ -70,7 +70,15 @@
     G.showCategory.__fpsPatched=true;G.showCategory.__original=original;
   }
 
-  function loop(now){const dt=now-S.last;S.last=now;if(dt>0&&dt<1000){S.samples.push(1000/dt);if(S.samples.length>30)S.samples.shift()}if(S.samples.length>=10)S.fps=S.samples.reduce((a,b)=>a+b,0)/S.samples.length;if(S.mode==="adaptive"&&S.samples.length>=10){if(S.fps<43&&S.level<3)level(S.level+1);else if(S.fps<50&&S.level<2)level(S.level+1);else if(S.fps<56&&S.level<1)level(S.level+1);else if(S.fps>59.5&&S.level>0)level(S.level-1)}if(S.display==="full"&&Math.round(now)%250<17)render();S.raf=requestAnimationFrame(loop)}
+  function loop(now){
+    const dt=now-S.last;S.last=now;S.frames++;
+    if(dt>0&&dt<1000){S.samples.push(1000/dt);if(S.samples.length>30)S.samples.shift()}
+    if(S.samples.length>=10)S.fps=S.samples.reduce((a,b)=>a+b,0)/S.samples.length;
+    if(S.mode==="adaptive"&&S.samples.length>=10){if(S.fps<43&&S.level<3)level(S.level+1);else if(S.fps<50&&S.level<2)level(S.level+1);else if(S.fps<56&&S.level<1)level(S.level+1);else if(S.fps>59.5&&S.level>0)level(S.level-1)}
+    if((S.frames%30)===0&&window.__GalaxyUI?.state?.current==="Utility")utilityButton();
+    if(S.display==="full"&&S.frames%15===0)render();
+    S.raf=requestAnimationFrame(loop);
+  }
 
   function destroy(){cancelAnimationFrame(S.raf);if(S.patched)HTMLCanvasElement.prototype.getContext=S.origGetContext;document.getElementById("minemod-fps-style")?.remove();document.getElementById("minemod-fps-panel")?.remove();document.documentElement.classList.remove("mm-fps-1","mm-fps-2","mm-fps-3");delete window.__MineModFPSBooster}
 
