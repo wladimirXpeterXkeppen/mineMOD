@@ -5,20 +5,27 @@
 
   const S={
     enabled:true,mode:"performance",level:2,display:"compact",raf:0,last:performance.now(),samples:[],fps:0,frames:0,
-    webgl:false,effects:false,timerGuard:false,consoleMute:false,performanceCleanup:false,
+    webgl:2,effects:2,timerGuard:0,consoleMute:false,performanceCleanup:false,
     patchedWebgl:false,patchedTimer:false,patchedConsole:false,
     origGetContext:HTMLCanvasElement.prototype.getContext,
     origSetInterval:window.setInterval,
     origConsole:{log:console.log,warn:console.warn,error:console.error,info:console.info,debug:console.debug}
   };
   const MODES={adaptive:"Adaptive",balanced:"Balanced",performance:"Performance",ultra:"Ultra"};
+  const LEVELS=["OFF","LIGHT","MEDIUM","STRONG"];
+  const PRESETS={
+    adaptive:{webgl:2,effects:1,timerGuard:0,consoleMute:false},
+    balanced:{webgl:1,effects:1,timerGuard:0,consoleMute:false},
+    performance:{webgl:2,effects:2,timerGuard:0,consoleMute:false},
+    ultra:{webgl:3,effects:3,timerGuard:1,consoleMute:true}
+  };
 
   function style(){
     if(document.getElementById("minemod-fps-style"))return;
     const st=document.createElement("style");st.id="minemod-fps-style";st.textContent=`
 #minemod-fps-panel{position:fixed;top:10px;right:10px;z-index:2147483647;color:#fff;font:12px Arial,sans-serif;user-select:none}
 #minemod-fps-panel.compact{padding:5px 9px;border-radius:7px;background:rgba(4,10,20,.75);border:1px solid rgba(0,220,255,.3);cursor:pointer}
-#minemod-fps-panel.full{width:270px;padding:13px;border-radius:12px;background:rgba(4,10,20,.95);border:1px solid rgba(0,220,255,.4);box-shadow:0 0 22px rgba(0,220,255,.18);cursor:default}
+#minemod-fps-panel.full{width:300px;padding:13px;border-radius:12px;background:rgba(4,10,20,.95);border:1px solid rgba(0,220,255,.4);box-shadow:0 0 22px rgba(0,220,255,.18);cursor:default}
 #minemod-fps-panel .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ffd166;margin-right:5px}
 #minemod-fps-panel.ultra .dot{background:#ff5c6c}
 #minemod-fps-panel.full .title{color:#00eaff;font-weight:800;font-size:14px;margin-bottom:9px}
@@ -27,51 +34,64 @@
 #minemod-fps-panel.full button:hover{background:rgba(0,220,255,.18);border-color:#00eaff}
 #minemod-fps-panel .advanced{margin-top:10px;padding-top:9px;border-top:1px solid rgba(0,220,255,.15)}
 #minemod-fps-panel .advanced-title{color:#8db9c9;font-size:11px;margin-bottom:6px}
-#minemod-fps-panel .toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 2px;color:#d8edf5;cursor:pointer}
-#minemod-fps-panel .toggle input{accent-color:#00dfff}
-#minemod-fps-panel .toggle small{color:#6f8996;font-size:9px}
+#minemod-fps-panel .toggle{display:grid;grid-template-columns:1fr 112px;align-items:center;gap:8px;padding:5px 2px;color:#d8edf5}
+#minemod-fps-panel .toggle small{display:block;color:#6f8996;font-size:9px;margin-top:2px}
+#minemod-fps-panel .level{width:112px;padding:5px;border-radius:6px;border:1px solid #16415b;background:#07101d;color:#fff;cursor:pointer}
+#minemod-fps-panel .level:hover{border-color:#00eaff;background:#0b1a28}
 #minemod-fps-panel .hint{margin-top:8px;color:#7893a3;font-size:10px;text-align:center}
 html.mm-fps-1 canvas{image-rendering:auto}
 html.mm-fps-2 canvas{image-rendering:auto}
 html.mm-fps-3 canvas{image-rendering:pixelated!important}
-html.mm-fps-3 *{box-shadow:none!important;text-shadow:none!important}
-html.mm-fps-3 [style*="animation"],html.mm-fps-3 .animate,html.mm-fps-3 .animated{animation:none!important}
+html.mm-fps-effects-1 *{text-shadow:none!important}
+html.mm-fps-effects-2 *{box-shadow:none!important;text-shadow:none!important}
+html.mm-fps-effects-3 *{box-shadow:none!important;text-shadow:none!important;animation:none!important;transition:none!important}
 `;
     document.head.appendChild(st);
   }
 
-  function webgl(on){
-    if(on&&!S.patchedWebgl){
+  function webgl(level){
+    level=Math.max(0,Math.min(3,Number(level)||0));S.webgl=level;
+    if(level>0&&!S.patchedWebgl){
       const original=S.origGetContext;
       HTMLCanvasElement.prototype.getContext=function(type,attrs){
-        if(type==="webgl"||type==="webgl2")attrs=Object.assign({},attrs||{},{antialias:false,powerPreference:"high-performance",preserveDrawingBuffer:false});
+        if(type==="webgl"||type==="webgl2"){
+          attrs=Object.assign({},attrs||{});
+          if(level>=1)attrs.antialias=false;
+          if(level>=2)attrs.powerPreference="high-performance";
+          if(level>=3)attrs.preserveDrawingBuffer=false;
+        }
         return original.call(this,type,attrs);
       };
       S.patchedWebgl=true;
-    }else if(!on&&S.patchedWebgl){HTMLCanvasElement.prototype.getContext=S.origGetContext;S.patchedWebgl=false}
+    }else if(level===0&&S.patchedWebgl){HTMLCanvasElement.prototype.getContext=S.origGetContext;S.patchedWebgl=false}
   }
 
-  function effects(on){
-    S.effects=!!on;
-    document.documentElement.classList.toggle("mm-fps-3",S.effects);
+  function effects(level){
+    level=Math.max(0,Math.min(3,Number(level)||0));S.effects=level;
+    document.documentElement.classList.remove("mm-fps-effects-1","mm-fps-effects-2","mm-fps-effects-3");
+    if(level)document.documentElement.classList.add("mm-fps-effects-"+level);
   }
 
-  function timerGuard(on){
-    if(on&&!S.patchedTimer){
+  function timerGuard(level){
+    level=Math.max(0,Math.min(3,Number(level)||0));S.timerGuard=level;
+    if(level>0&&!S.patchedTimer){
       const original=S.origSetInterval;
-      window.setInterval=function(f,d,...a){return original.call(this,f,Math.max(100,Number(d)||0),...a)};
+      window.setInterval=function(f,d,...a){
+        const n=Number(d)||0;
+        const min=level===1?50:level===2?100:250;
+        return original.call(this,f,Math.max(min,n),...a);
+      };
       S.patchedTimer=true;
-    }else if(!on&&S.patchedTimer){window.setInterval=S.origSetInterval;S.patchedTimer=false}
+    }else if(level===0&&S.patchedTimer){window.setInterval=S.origSetInterval;S.patchedTimer=false}
   }
 
   function consoleMute(on){
+    S.consoleMute=!!on;
     if(on&&!S.patchedConsole){
       const noop=function(){};
       console.log=console.warn=console.error=console.info=console.debug=noop;
       S.patchedConsole=true;
-    }else if(!on&&S.patchedConsole){
-      Object.assign(console,S.origConsole);S.patchedConsole=false;
-    }
+    }else if(!on&&S.patchedConsole){Object.assign(console,S.origConsole);S.patchedConsole=false}
   }
 
   function performanceCleanup(){
@@ -79,15 +99,17 @@ html.mm-fps-3 [style*="animation"],html.mm-fps-3 .animate,html.mm-fps-3 .animate
     try{console.clear();}catch{}
   }
 
-  function setOption(name,on){
-    on=!!on;
-    S[name]=on;
-    if(name==="webgl")webgl(on);
-    if(name==="effects")effects(on);
-    if(name==="timerGuard")timerGuard(on);
-    if(name==="consoleMute")consoleMute(on);
-    if(name==="performanceCleanup"&&on)performanceCleanup();
+  function setOption(name,value){
+    if(name==="webgl")webgl(value);
+    else if(name==="effects")effects(value);
+    else if(name==="timerGuard")timerGuard(value);
+    else if(name==="consoleMute")consoleMute(value);
+    else if(name==="performanceCleanup"&&value)performanceCleanup();
     render();
+  }
+
+  function optionButton(name,label,desc,value){
+    return `<div class="toggle"><span>${label}<small>${desc}</small></span><button class="level" data-opt="${name}" data-value="${value}">${LEVELS[value]||"ON"}</button></div>`;
   }
 
   function panel(){
@@ -100,7 +122,7 @@ html.mm-fps-3 [style*="animation"],html.mm-fps-3 .animate,html.mm-fps-3 .animate
     const p=document.getElementById("minemod-fps-panel");if(!p)return;
     const name=MODES[S.mode]||"Performance";
     p.className=(S.display==="compact"?"compact ":"full ")+(S.level>=3?"ultra":"performance");
-    if(S.display==="compact"){p.innerHTML=`<span class="dot"></span>${name}`;return}
+    if(S.display==="compact"){p.innerHTML=`<span class="dot"></span>${name} · ${Math.round(S.fps||0)} FPS`;return}
     p.innerHTML=`
       <div class="title">mineMOD FPS Booster</div>
       <div class="row"><span>FPS</span><b>${Math.round(S.fps||0)}</b></div>
@@ -113,27 +135,36 @@ html.mm-fps-3 [style*="animation"],html.mm-fps-3 .animate,html.mm-fps-3 .animate
       <button data-a="power">${S.enabled?"Disable Booster":"Enable Booster"}</button>
       <div class="advanced">
         <div class="advanced-title">Advanced Performance Controls</div>
-        <label class="toggle"><span>WebGL optimization <small>GPU</small></span><input data-opt="webgl" type="checkbox" ${S.webgl?"checked":""}></label>
-        <label class="toggle"><span>Visual effects reduction <small>UI</small></span><input data-opt="effects" type="checkbox" ${S.effects?"checked":""}></label>
-        <label class="toggle"><span>Timer guard <small>100ms min</small></span><input data-opt="timerGuard" type="checkbox" ${S.timerGuard?"checked":""}></label>
-        <label class="toggle"><span>Console mute <small>logs off</small></span><input data-opt="consoleMute" type="checkbox" ${S.consoleMute?"checked":""}></label>
-        <label class="toggle"><span>Performance cleanup <small>one-shot</small></span><input data-opt="performanceCleanup" type="checkbox" ${S.performanceCleanup?"checked":""}></label>
+        ${optionButton("webgl","WebGL optimization","GPU context settings",S.webgl)}
+        ${optionButton("effects","Visual effects reduction","UI effects",S.effects)}
+        ${optionButton("timerGuard","Timer guard","minimum interval",S.timerGuard)}
+        <div class="toggle"><span>Console mute<small>logs off</small></span><button class="level" data-opt="consoleMute" data-value="${S.consoleMute?1:0}">${S.consoleMute?"ON":"OFF"}</button></div>
+        <div class="toggle"><span>Performance cleanup<small>one-shot</small></span><button class="level" data-opt="performanceCleanup" data-value="0">RUN</button></div>
       </div>
-      <div class="hint">各項目は個別にON/OFFできます</div>`;
+      <div class="hint">各項目をクリックして OFF / LIGHT / MEDIUM / STRONG を切替</div>`;
     p.querySelector('[data-a="mode"]').onclick=e=>{e.stopPropagation();cycle()};
     p.querySelector('[data-a="display"]').onclick=e=>{e.stopPropagation();setDisplay("compact")};
-    p.querySelector('[data-a="power"]').onclick=e=>{e.stopPropagation();S.enabled=!S.enabled;apply(S.mode)};
-    p.querySelectorAll('[data-opt]').forEach(i=>i.onclick=e=>{e.stopPropagation();setOption(i.dataset.opt,i.checked)});
+    p.querySelector('[data-a="power"]').onclick=e=>{e.stopPropagation();S.enabled=!S.enabled;if(!S.enabled){webgl(0);effects(0);timerGuard(0);consoleMute(false)}else apply(S.mode)};
+    p.querySelectorAll('[data-opt]').forEach(b=>b.onclick=e=>{
+      e.stopPropagation();
+      const n=b.dataset.opt;
+      if(n==="consoleMute"){consoleMute(!S.consoleMute)}
+      else if(n==="performanceCleanup"){performanceCleanup()}
+      else {const v=(Number(b.dataset.value)+1)%4;setOption(n,v)}
+    });
   }
 
   function setDisplay(v){S.display=v==="full"?"full":"compact";render()}
   function level(n){S.level=Math.max(0,Math.min(3,n));document.documentElement.classList.remove("mm-fps-1","mm-fps-2","mm-fps-3");if(S.enabled&&S.level)document.documentElement.classList.add("mm-fps-"+S.level);render()}
+
   function apply(m){
     if(!MODES[m])m="performance";
     S.mode=m;S.enabled=true;
+    const p=PRESETS[m]||PRESETS.performance;
+    webgl(p.webgl);effects(p.effects);timerGuard(p.timerGuard);consoleMute(p.consoleMute);
     if(m==="adaptive")level(2);else if(m==="balanced")level(1);else if(m==="performance")level(2);else level(3);
-    webgl(true);
   }
+
   function cycle(){const k=Object.keys(MODES),i=k.indexOf(S.mode);apply(k[(i+1)%k.length])}
 
   function utilityButton(){
@@ -171,11 +202,11 @@ html.mm-fps-3 [style*="animation"],html.mm-fps-3 .animate,html.mm-fps-3 .animate
     if(S.patchedConsole)Object.assign(console,S.origConsole);
     document.getElementById("minemod-fps-style")?.remove();
     document.getElementById("minemod-fps-panel")?.remove();
-    document.documentElement.classList.remove("mm-fps-1","mm-fps-2","mm-fps-3");
+    document.documentElement.classList.remove("mm-fps-1","mm-fps-2","mm-fps-3","mm-fps-effects-1","mm-fps-effects-2","mm-fps-effects-3");
     delete window.__MineModFPSBooster;
   }
 
   style();panel();apply("performance");patchUtility();S.raf=requestAnimationFrame(loop);
-  window.__MineModFPSBooster={state:S,modes:MODES,destroy,setMode:apply,setLevel:level,setDisplay,cycle,setOption};
-  console.log("[mineMOD FPS Booster] modular controls loaded");
+  window.__MineModFPSBooster={state:S,modes:MODES,destroy,setMode:apply,setLevel:level,setDisplay,setOption,cycle};
+  console.log("[mineMOD FPS Booster] per-feature power levels loaded");
 })();
