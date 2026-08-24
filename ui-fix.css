@@ -1,0 +1,9 @@
+/* mineMOD UI interaction fix
+ * Prevents radial-menu hover flicker caused by opacity/filter dimming
+ * and by moving a button away from the pointer while hovered.
+ */
+.galaxy-wheel-hover .galaxy-button{opacity:1!important;filter:none!important}
+.galaxy-wheel-hover .galaxy-button:hover{opacity:1!important;filter:none!important}
+.galaxy-button:hover{transform:translate3d(calc(-50% + var(--orbit-x,0px)),calc(-50% + var(--orbit-y,0px)),0) scale(1.08)!important;translate:none!important}
+.galaxy-button:active{transform:translate3d(calc(-50% + var(--orbit-x,0px)),calc(-50% + var(--orbit-y,0px)),0) scale(.96)!important}
+#minemod-fps-panel button,#minemod-fps-panel button:hover,#minemod-fps-panel button:active{animation:none!important;transition:background .12s ease,border-color .12s ease,transform .12s ease!important}
