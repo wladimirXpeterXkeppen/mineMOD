@@ -1,6 +1,6 @@
 /* mineMOD Sonnet integration bridge
- * Utility modules are registered synchronously with Sonnet UI.
- * Music Player, FPS Booster, and Ad Blocker are injected as soon as Utility exists.
+ * Utility modules are registered only inside the Utility submenu.
+ * Music Player, FPS Booster, and Ad Blocker are injected immediately when Utility opens.
  */
 (()=>{
   "use strict";
@@ -12,10 +12,14 @@
     const original=ui.showCategory;
     const timerKey="__mineModUtilityObserver";
 
+    const isUtility=()=>ui.state?.current==="Utility";
+
     const addUtility=()=>{
+      if(!isUtility())return false;
+
       const G=ui.state;
       const host=G.ui?.querySelector("#galaxy-buttons");
-      if(!host)return;
+      if(!host)return false;
 
       const extras=[
         ["Music Player",()=>window.__MineModMP3?.open?.()],
@@ -25,7 +29,7 @@
 
       const existing=[...host.querySelectorAll(".galaxy-button")];
       const missing=extras.filter(([name])=>!host.querySelector(`[data-module="${name}"]`));
-      if(!missing.length)return;
+      if(!missing.length)return true;
 
       const total=existing.length+missing.length;
       existing.forEach((b,i)=>b._baseAngle=-Math.PI/2+(Math.PI*2/total)*i);
@@ -61,11 +65,16 @@
         host.appendChild(b);
         G.buttons.push(b);
       });
+
+      return true;
     };
 
     ui.showCategory=function(category){
       original(category);
-      if(category==="Utility")addUtility();
+      if(category==="Utility"){
+        /* Inject in the same turn as the submenu is created. */
+        addUtility();
+      }
     };
 
     ui.showCategory.__mineModIntegrated=true;
@@ -73,22 +82,24 @@
     ui.showCategory.__original=original;
 
     /*
-     * Fix the late FPS button:
-     * observe the actual radial-button container instead of waiting for a timer.
+     * Watch only the actual Utility button container.
+     * IMPORTANT: do not call addUtility during startup while the main menu is open.
      */
     const observer=new MutationObserver(()=>{
-      if(ui.state?.current==="Utility")addUtility();
+      if(isUtility())addUtility();
     });
 
     const startObserver=()=>{
       const host=ui.state?.ui?.querySelector("#galaxy-buttons");
-      if(host){
-        observer.observe(host,{childList:true});
-        addUtility();
-        window[timerKey]={observer};
-        return true;
-      }
-      return false;
+      if(!host)return false;
+
+      observer.observe(host,{childList:true});
+
+      /* No initial injection here: main-menu buttons must remain untouched. */
+      if(isUtility())addUtility();
+
+      window[timerKey]={observer};
+      return true;
     };
 
     if(!startObserver()){
