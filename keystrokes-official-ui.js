@@ -1,101 +1,24 @@
-/* mineMOD - official Keystrokes UI bridge
- * Uses the existing HUD -> Keystrokes submenu. Does not create a second module.
- * Based on the supplied official Keystrokes implementation.
- */
+/* mineMOD - official Keystrokes UI bridge */
 (()=>{
   "use strict";
   const wait=()=>{
-    const F=window.__SonnetFeatures, G=window.__GalaxyUI;
-    if(!F?.data || !G?.showFeatureSettings){setTimeout(wait,50);return;}
-    const D=F.data;
-    const K=D.keystrokes||(D.keystrokes={});
-    // Official defaults: Show Space/LMB/RMB/CPS on, RGB/edit off, scale 10.
-    K.showSpace=K.showSpace!==false;
-    K.showLMB=K.showLMB!==false;
-    K.showRMB=K.showRMB!==false;
-    K.showCPS=K.showCPS!==false;
-    K.rgb=!!K.rgb;
-    K.editPosition=!!K.editPosition;
-    K.scale=Math.max(1,Math.min(23,Number(K.scale)||10));
-    K.x=Number.isFinite(Number(K.x))?Number(K.x):20;
-    K.y=Number.isFinite(Number(K.y))?Number(K.y):100;
-
+    const F=window.__SonnetFeatures,G=window.__GalaxyUI;
+    if(!F?.data||!G?.showFeatureSettings){setTimeout(wait,50);return}
+    const D=F.data,K=D.keystrokes||(D.keystrokes={});
+    K.showSpace=K.showSpace!==false;K.showLMB=K.showLMB!==false;K.showRMB=K.showRMB!==false;K.showCPS=K.showCPS!==false;K.rgb=!!K.rgb;K.editPosition=!!K.editPosition;K.scale=Math.max(1,Math.min(23,Number(K.scale)||10));K.x=Number.isFinite(+K.x)?+K.x:20;K.y=Number.isFinite(+K.y)?+K.y:100;
     const sid="mf-official-ks-style";
-    if(!document.getElementById(sid)){
-      const st=document.createElement("style"); st.id=sid;
-      st.textContent=`
-#sonnet-ks{position:fixed!important;top:100px!important;left:20px!important;bottom:auto!important;display:flex!important;flex-direction:column!important;gap:4px!important;font-family:'Product Sans',Arial,sans-serif!important;user-select:none!important;transform-origin:top left!important;z-index:2147483646!important}
-#sonnet-ks .ks-row{display:flex;gap:4px;justify-content:center}
-#sonnet-ks .ks-key{width:45px;height:45px;background:rgba(0,0,0,.5);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:4px;font-weight:bold;transition:background .05s,transform .05s;font-size:16px;border:1px solid rgba(255,255,255,.1);box-sizing:border-box;line-height:1.1}
-#sonnet-ks .ks-key.active{background:rgba(255,255,255,.6)!important;color:#000!important;transform:scale(.95)}
-#sonnet-ks .ks-mouse{width:70px;font-size:14px}.ks-space{width:144px!important;height:25px}.ks-cps{font-size:10px;font-weight:normal;margin-top:2px;opacity:.8}
-#sonnet-ks.official-rgb .ks-key{color:var(--ks-rgb-color,#fff);border-color:var(--ks-rgb-color,rgba(255,255,255,.1));text-shadow:0 0 5px var(--ks-rgb-color,transparent);box-shadow:inset 0 0 5px var(--ks-rgb-color,transparent),0 0 5px var(--ks-rgb-color,transparent)}
-#sonnet-ks.official-rgb .ks-key.active{background:var(--ks-rgb-color,rgba(255,255,255,.6))!important;color:#000!important}
-#sonnet-ks.official-edit{pointer-events:auto!important;cursor:move!important;outline:1px dashed rgba(255,255,255,.5)}
-      `;
-      document.head.appendChild(st);
-    }
-
-    let ks=null, leftClicks=[],rightClicks=[],drag=false,ox=0,oy=0;
-    const save=()=>F.save();
-    const get=()=>document.getElementById("sonnet-ks");
-
-    function render(){
-      ks=get();
-      if(!D.modules.Keystrokes){ks?.remove();return;}
-      if(!ks){ks=document.createElement("div");ks.id="sonnet-ks";document.body.appendChild(ks)}
-      ks.innerHTML=`<div class="ks-row"><div id="key-w" class="ks-key" data-code="KeyW">W</div></div><div class="ks-row"><div id="key-a" class="ks-key" data-code="KeyA">A</div><div id="key-s" class="ks-key" data-code="KeyS">S</div><div id="key-d" class="ks-key" data-code="KeyD">D</div></div><div class="ks-row" id="ks-mouse-row"><div id="key-lmb" class="ks-key ks-mouse" data-code="LMB">LMB<div class="ks-cps" id="cps-l">0 CPS</div></div><div id="key-rmb" class="ks-key ks-mouse" data-code="RMB">RMB<div class="ks-cps" id="cps-r">0 CPS</div></div></div><div class="ks-row" id="ks-space-row"><div id="key-space" class="ks-key ks-space" data-code="Space">━━━</div></div>`;
-      ks.style.left=K.x+"px";ks.style.top=K.y+"px";ks.style.transform=`scale(${K.scale/10})`;
-      ks.style.setProperty("--mf-pressed-bg",K.pressedBG||"rgba(255,255,255,.6)");
-      ks.style.setProperty("--mf-pressed-text",K.pressedText||"#000");
-      ks.classList.toggle("official-rgb",K.rgb);
-      ks.classList.toggle("official-edit",K.editPosition);
-      ks.querySelector("#ks-space-row").style.display=K.showSpace?"flex":"none";
-      ks.querySelector("#ks-mouse-row").style.display=(K.showLMB||K.showRMB)?"flex":"none";
-      ks.querySelector("#key-lmb").style.display=K.showLMB?"flex":"none";
-      ks.querySelector("#key-rmb").style.display=K.showRMB?"flex":"none";
-      ks.querySelector("#cps-l").style.display=K.showCPS?"block":"none";
-      ks.querySelector("#cps-r").style.display=K.showCPS?"block":"none";
-      if(K.editPosition){ks.onmousedown=e=>{drag=true;ox=e.clientX-ks.offsetLeft;oy=e.clientY-ks.offsetTop;e.preventDefault()}}else ks.onmousedown=null;
-    }
-
-    function press(code,on){const e=get()?.querySelector(`[data-code="${code}"]`);if(e)e.classList.toggle("active",on)}
-    document.addEventListener("keydown",e=>{if(D.modules.Keystrokes)press(e.code,true)},true);
-    document.addEventListener("keyup",e=>press(e.code,false),true);
-    document.addEventListener("mousedown",e=>{if(!D.modules.Keystrokes)return;const n=Date.now();if(e.button===0){leftClicks.push(n);press("LMB",true)}else if(e.button===2){rightClicks.push(n);press("RMB",true)}},true);
-    document.addEventListener("mouseup",e=>{if(e.button===0)press("LMB",false);else if(e.button===2)press("RMB",false)},true);
-    document.addEventListener("mousemove",e=>{if(!drag||!ks)return;K.x=e.clientX-ox;K.y=e.clientY-oy;ks.style.left=K.x+"px";ks.style.top=K.y+"px";save()},true);
-    document.addEventListener("mouseup",()=>drag=false,true);
-
-    setInterval(()=>{
-      const now=Date.now();leftClicks=leftClicks.filter(t=>now-t<1000);rightClicks=rightClicks.filter(t=>now-t<1000);
-      const e1=get()?.querySelector("#cps-l"),e2=get()?.querySelector("#cps-r");
-      if(e1)e1.textContent=leftClicks.length+" CPS";
-      if(e2)e2.textContent=rightClicks.length+" CPS";
-      const k=get();if(k&&K.rgb)k.style.setProperty("--ks-rgb-color",`hsl(${(Date.now()/10*1.2)%360},100%,65%)`);
-    },50);
-
+    if(!document.getElementById(sid)){const s=document.createElement("style");s.id=sid;s.textContent=`#sonnet-ks{position:fixed!important;top:100px!important;left:20px!important;bottom:auto!important;display:flex!important;flex-direction:column!important;gap:4px!important;font-family:'Product Sans',Arial,sans-serif!important;user-select:none!important;transform-origin:top left!important;z-index:2147483646!important}.ks-row{display:flex;gap:4px;justify-content:center}.ks-key{width:45px;height:45px;background:rgba(0,0,0,.5);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:4px;font-weight:bold;transition:background .05s,transform .05s;font-size:16px;border:1px solid rgba(255,255,255,.1);box-sizing:border-box;line-height:1.1}.ks-key.active{background:rgba(255,255,255,.6)!important;color:#000!important;transform:scale(.95)}.ks-mouse{width:70px;font-size:14px}.ks-space{width:144px!important;height:25px}.ks-cps{font-size:10px;font-weight:normal;margin-top:2px;opacity:.8}.official-rgb .ks-key{color:var(--ks-rgb-color,#fff);border-color:var(--ks-rgb-color,rgba(255,255,255,.1));text-shadow:0 0 5px var(--ks-rgb-color,transparent);box-shadow:inset 0 0 5px var(--ks-rgb-color,transparent),0 0 5px var(--ks-rgb-color,transparent)}.official-rgb .ks-key.active{background:var(--ks-rgb-color,rgba(255,255,255,.6))!important;color:#000!important}.official-edit{pointer-events:auto!important;cursor:move!important;outline:1px dashed rgba(255,255,255,.5)}`;document.head.appendChild(s)}
+    let ks=null,L=[],R=[],drag=false,ox=0,oy=0;
+    const save=()=>F.save(),get=()=>document.getElementById("sonnet-ks");
+    function render(){ks=get();if(!D.modules.Keystrokes){ks?.remove();return}if(!ks){ks=document.createElement("div");ks.id="sonnet-ks";document.body.appendChild(ks)}ks.innerHTML=`<div class="ks-row"><div id="key-w" class="ks-key" data-code="KeyW">W</div></div><div class="ks-row"><div id="key-a" class="ks-key" data-code="KeyA">A</div><div id="key-s" class="ks-key" data-code="KeyS">S</div><div id="key-d" class="ks-key" data-code="KeyD">D</div></div><div class="ks-row" id="ks-mouse-row"><div id="key-lmb" class="ks-key ks-mouse" data-code="LMB">LMB<div class="ks-cps" id="cps-l">0 CPS</div></div><div id="key-rmb" class="ks-key ks-mouse" data-code="RMB">RMB<div class="ks-cps" id="cps-r">0 CPS</div></div></div><div class="ks-row" id="ks-space-row"><div id="key-space" class="ks-key ks-space" data-code="Space">━━━</div></div>`;ks.style.left=K.x+"px";ks.style.top=K.y+"px";ks.style.transform=`scale(${K.scale/10})`;ks.classList.toggle("official-rgb",K.rgb);ks.classList.toggle("official-edit",K.editPosition);ks.querySelector("#ks-space-row").style.display=K.showSpace?"flex":"none";ks.querySelector("#ks-mouse-row").style.display=K.showLMB||K.showRMB?"flex":"none";ks.querySelector("#key-lmb").style.display=K.showLMB?"flex":"none";ks.querySelector("#key-rmb").style.display=K.showRMB?"flex":"none";ks.querySelector("#cps-l").style.display=K.showCPS?"block":"none";ks.querySelector("#cps-r").style.display=K.showCPS?"block":"none";ks.style.setProperty("--mf-pressed-bg","rgba(255,255,255,.6)");ks.style.setProperty("--mf-pressed-text","#000");if(K.editPosition)ks.onmousedown=e=>{drag=true;ox=e.clientX-ks.offsetLeft;oy=e.clientY-ks.offsetTop;e.preventDefault()};else ks.onmousedown=null}
+    F.renderKeystrokes=render;window.__SonnetFeatures.renderKeystrokes=render;
+    const press=(code,on)=>get()?.querySelector(`[data-code="${code}"]`)?.classList.toggle("active",on);
+    document.addEventListener("keydown",e=>{if(D.modules.Keystrokes)press(e.code,true)},true);document.addEventListener("keyup",e=>press(e.code,false),true);
+    document.addEventListener("mousedown",e=>{if(!D.modules.Keystrokes)return;const n=Date.now();if(e.button===0){L.push(n);press("LMB",true)}else if(e.button===2){R.push(n);press("RMB",true)}},true);document.addEventListener("mouseup",e=>{if(e.button===0)press("LMB",false);else if(e.button===2)press("RMB",false)},true);
+    document.addEventListener("mousemove",e=>{if(!drag||!ks)return;K.x=e.clientX-ox;K.y=e.clientY-oy;ks.style.left=K.x+"px";ks.style.top=K.y+"px";save()},true);document.addEventListener("mouseup",()=>drag=false,true);
+    setInterval(()=>{const n=Date.now();L=L.filter(t=>n-t<1000);R=R.filter(t=>n-t<1000);const a=get()?.querySelector("#cps-l"),b=get()?.querySelector("#cps-r");if(a)a.textContent=L.length+" CPS";if(b)b.textContent=R.length+" CPS";const k=get();if(k&&K.rgb)k.style.setProperty("--ks-rgb-color",`hsl(${(Date.now()/10*1.2)%360},100%,65%)`)},50);
     const oldSettings=G.showFeatureSettings;
-    G.showFeatureSettings=function(type){
-      if(type!=="Keystrokes")return oldSettings(type);
-      const oldBox=document.getElementById("sonnet-settings");oldBox?.remove();
-      const box=document.createElement("div");box.id="sonnet-settings";box.style.display="block";document.body.appendChild(box);
-      box.innerHTML=`<button class="close">×</button><h3>Keystrokes</h3><div id="sonnet-settings-body">
-        <label>Show Space <input id="ok-space" type="checkbox" ${K.showSpace?"checked":""}></label>
-        <label>Show LMB <input id="ok-lmb" type="checkbox" ${K.showLMB?"checked":""}></label>
-        <label>Show RMB <input id="ok-rmb" type="checkbox" ${K.showRMB?"checked":""}></label>
-        <label>Show CPS <input id="ok-cps" type="checkbox" ${K.showCPS?"checked":""}></label>
-        <label>RGB <input id="ok-rgb" type="checkbox" ${K.rgb?"checked":""}></label>
-        <label>Edit position <input id="ok-edit" type="checkbox" ${K.editPosition?"checked":""}></label>
-        <label>Scale (1-23) <input id="ok-scale" type="range" min="1" max="23" value="${K.scale}"><span id="ok-scale-v">${K.scale}</span></label>
-      </div>`;
-      box.querySelector(".close").onclick=()=>box.remove();
-      const check=(id,key)=>box.querySelector(id).onchange=e=>{K[key]=e.target.checked;save();render()};
-      check("#ok-space","showSpace");check("#ok-lmb","showLMB");check("#ok-rmb","showRMB");check("#ok-cps","showCPS");check("#ok-rgb","rgb");check("#ok-edit","editPosition");
-      box.querySelector("#ok-scale").oninput=e=>{K.scale=+e.target.value;box.querySelector("#ok-scale-v").textContent=K.scale;save();render()};
-    };
-    window.__OfficialKeystrokesBridge={render,settings:()=>G.showFeatureSettings("Keystrokes")};
+    G.showFeatureSettings=function(type){if(type!=="Keystrokes")return oldSettings(type);const old=document.getElementById("sonnet-settings");old?.remove();const box=document.createElement("div");box.id="sonnet-settings";box.style.display="block";document.body.appendChild(box);box.innerHTML=`<button class="close">×</button><h3>Keystrokes</h3><div id="sonnet-settings-body"><label>Show Space <input id="ok-space" type="checkbox" ${K.showSpace?"checked":""}></label><label>Show LMB <input id="ok-lmb" type="checkbox" ${K.showLMB?"checked":""}></label><label>Show RMB <input id="ok-rmb" type="checkbox" ${K.showRMB?"checked":""}></label><label>Show CPS <input id="ok-cps" type="checkbox" ${K.showCPS?"checked":""}></label><label>RGB <input id="ok-rgb" type="checkbox" ${K.rgb?"checked":""}></label><label>Edit position <input id="ok-edit" type="checkbox" ${K.editPosition?"checked":""}></label><label>Scale (1-23) <input id="ok-scale" type="range" min="1" max="23" value="${K.scale}"><span id="ok-scale-v">${K.scale}</span></label></div>`;box.querySelector(".close").onclick=()=>box.remove();[["#ok-space","showSpace"],["#ok-lmb","showLMB"],["#ok-rmb","showRMB"],["#ok-cps","showCPS"],["#ok-rgb","rgb"],["#ok-edit","editPosition"]].forEach(([id,key])=>box.querySelector(id).onchange=e=>{K[key]=e.target.checked;save();render()});box.querySelector("#ok-scale").oninput=e=>{K.scale=+e.target.value;box.querySelector("#ok-scale-v").textContent=K.scale;save();render()}}
     render();
-  };
-  wait();
+  };wait();
 })();
