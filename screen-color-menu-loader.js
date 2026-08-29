@@ -1,0 +1,1 @@
+(()=>{const s=document.createElement('script');s.src='screen-color-menu.js';document.body.appendChild(s)})();
