@@ -1,0 +1,1083 @@
+/*
+ * BedWars Notifications v1.5
+ * - バッチパケット対応
+ * - 退出フィルタ (相手が抜けただけでは通知しない)
+ * - 自分のベッド破壊の特別通知 + カスタム音
+ * - 全滅通知の重複防止
+ * - HTML Audio + Web Audio ハイブリッド
+ */
+(function () {
+  "use strict";
+
+  if (window.__BW_NOTIF__) {
+    try { window.__BW_NOTIF__.destroy(); } catch (e) {}
+  }
+
+  /* ================================================================
+     定数
+     ================================================================ */
+  const PREFIX = "__bwnotif__:";
+
+  const OPCODE = Object.freeze({
+    BATCH: 3,
+    PLAYER_DEAD: 6,
+    GOT_DAMAGE: 512,
+    PLAYER_GOT_DAMAGE: 524,
+    BED_DESTROYED: 1502,
+    TEAM_ELIMINATED: 1510
+  });
+
+  const TEAM_COLORS = Object.freeze({
+    red: "#F33", blue: "#6EC9E8", green: "#8AFF3F", yellow: "#FCCF1A",
+    purple: "#D147EA", orange: "#F09925", white: "#F4F4F4",
+    gray: "#9AA0B4", grey: "#9AA0B4",
+    "light blue": "#3AF9CF", light_blue: "#3AF9CF", aqua: "#3AF9CF"
+  });
+
+  const TEAM_ICONS = Object.freeze({
+    red: "https://minefun.io/assets/640-DSh60gjK.png",
+    blue: "https://minefun.io/assets/1046-yBpzjP02.png",
+    green: "https://minefun.io/assets/1048-DARFgmWy.png",
+    yellow: "https://minefun.io/assets/1058-zkWt4hVU.png",
+    purple: "https://minefun.io/assets/1054-BB_QI2Pe.png",
+    orange: "https://minefun.io/assets/1052-Ch3SkaG5.png",
+    white: "https://minefun.io/assets/1056-D9V-wvsD.png",
+    "light blue": "https://minefun.io/assets/1050-CsZnjCVk.png",
+    light_blue: "https://minefun.io/assets/1050-CsZnjCVk.png",
+    aqua: "https://minefun.io/assets/1050-CsZnjCVk.png"
+  });
+
+  const SKULL_ICON = "https://minefun.io/assets/skull-y4aiBsYt.png";
+
+  const SOUND_URLS = Object.freeze({
+    bed: "https://minefun.io/assets/select-iaFF95Ap.mp3",
+    eliminated: "https://minefun.io/assets/newPhase-Cd7o-1xF.mp3",
+    ownBed: "https://www.image2url.com/r2/default/audio/1790590349862-913b9e83-ce5d-44ec-8169-11c2fccaa9ca.mp3"
+  });
+
+  /* ================================================================
+     Utils
+     ================================================================ */
+  const byId = (id) => document.getElementById(id);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const escHtml = (s) => {
+    const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" };
+    return String(s).replace(/[&<>"']/g, (c) => map[c]);
+  };
+  const teamKey = (t) => String(t).toLowerCase().replace(/-/g, "_");
+
+  /* ================================================================
+     Config
+     ================================================================ */
+  const DEFAULTS = {
+    enabled: true, bedDestroy: true, teamElim: true,
+    sound: true, volume: 0.5, duration: 3000,
+    maxToasts: 5, panelOpen: true, debug: false,
+    filterLeavers: true, deathWindowMs: 3000,
+    ownBedSpecial: true, ownBedDuration: 5000,
+    ownBedVolume: 0.8,
+    dedupeElim: true
+  };
+
+  const _cfg = Object.create(null);
+  function cfg(key) {
+    if (_cfg[key] !== undefined) return _cfg[key];
+    let saved;
+    try {
+      const raw = localStorage.getItem(PREFIX + key);
+      saved = raw === null ? undefined : JSON.parse(raw);
+    } catch (e) { saved = undefined; }
+    const val = saved !== undefined && saved !== null ? saved : DEFAULTS[key];
+    _cfg[key] = val;
+    return val;
+  }
+  function cfgSet(key, value) {
+    if (_cfg[key] === value && (value === null || typeof value !== "object")) return;
+    _cfg[key] = value;
+    try { localStorage.setItem(PREFIX + key, JSON.stringify(value)); } catch (e) {}
+  }
+
+  /* ================================================================
+     Game Access
+     ================================================================ */
+  const Game = {
+    getStores() {
+      try {
+        const vueApp = window.app;
+        if (!vueApp) return null;
+        const provides =
+          (vueApp._vnode && vueApp._vnode.component && vueApp._vnode.component.appContext && vueApp._vnode.component.appContext.provides) ||
+          (vueApp._context && vueApp._context.provides);
+        if (!provides) return null;
+        const sym = Object.getOwnPropertySymbols(provides).find(s => provides[s] && provides[s]._s);
+        return sym ? provides[sym]._s : null;
+      } catch (e) { return null; }
+    },
+    get gameWorld() {
+      try {
+        const s = this.getStores();
+        if (!s) return null;
+        const gs = s.get("gameState");
+        return gs ? (gs.gameWorld || null) : null;
+      } catch (e) { return null; }
+    },
+    get player() {
+      try {
+        const gw = this.gameWorld;
+        return gw ? gw.player : null;
+      } catch (e) { return null; }
+    },
+    get room() {
+      try {
+        const gw = this.gameWorld;
+        return (gw && gw.server && gw.server.room) ? gw.server.room : null;
+      } catch (e) { return null; }
+    },
+    get audioListener() {
+      try {
+        const gw = this.gameWorld;
+        if (!gw || !gw.systemsManager) return null;
+        const systems = gw.systemsManager.activeSystems || [];
+        for (const s of systems) {
+          if (s && s.audioListener) return s.audioListener;
+        }
+      } catch (e) {}
+      return null;
+    }
+  };
+
+  /* ================================================================
+     TeamInfo
+     ================================================================ */
+  const TeamInfo = {
+    _cachedTeam: null,
+    _lastCheck: 0,
+    _cacheMs: 2000,
+
+    getMyTeam() {
+      const now = performance.now();
+      if (this._cachedTeam && now - this._lastCheck < this._cacheMs) {
+        return this._cachedTeam;
+      }
+      this._lastCheck = now;
+
+      let team = null;
+
+      try {
+        const p = Game.player;
+        if (p) {
+          team = p.team || p.teamId || p.teamName || p.teamColor;
+          if (team) {
+            team = this._normalize(team);
+            this._cachedTeam = team;
+            Log.push(`[team] player.team = ${team}`, "log-hit");
+            return team;
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const stores = Game.getStores();
+        if (stores) {
+          const bws = stores.get("bedWarsStore");
+          if (bws) {
+            team = bws.myTeam || bws.team || bws.playerTeam;
+            if (team) {
+              team = this._normalize(team);
+              this._cachedTeam = team;
+              return team;
+            }
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const stores = Game.getStores();
+        if (stores) {
+          const rs = stores.get("roomState");
+          if (rs) {
+            team = rs.myTeam || rs.team;
+            if (team) {
+              team = this._normalize(team);
+              this._cachedTeam = team;
+              return team;
+            }
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const gw = Game.gameWorld;
+        if (gw) {
+          team = gw.myTeam || gw.playerTeam;
+          if (team) {
+            team = this._normalize(team);
+            this._cachedTeam = team;
+            return team;
+          }
+        }
+      } catch (e) {}
+
+      return null;
+    },
+
+    _normalize(t) {
+      if (!t) return null;
+      const s = String(t).toLowerCase().trim();
+      return s.replace(/-/g, " ");
+    },
+
+    isMyTeam(team) {
+      const my = this.getMyTeam();
+      if (!my || !team) return false;
+      return this._normalize(team) === my;
+    },
+
+    reset() {
+      this._cachedTeam = null;
+      this._lastCheck = 0;
+    }
+  };
+
+  /* ================================================================
+     Sound v2 — HTML Audio + Web Audio ハイブリッド
+     ================================================================ */
+  const Sound = (() => {
+    const bufferCache = new Map();
+    const fetching = new Map();
+    const audioPool = new Map();
+
+    /* ---------- Web Audio (MineFun公式用) ---------- */
+    async function loadBuffer(url, ctx) {
+      if (bufferCache.has(url)) return bufferCache.get(url);
+      if (fetching.has(url)) return fetching.get(url);
+      const p = (async () => {
+        try {
+          const res = await fetch(url, { mode: "cors" });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const arr = await res.arrayBuffer();
+          const buf = await ctx.decodeAudioData(arr);
+          bufferCache.set(url, buf);
+          return buf;
+        } catch (e) {
+          console.warn("[BWN] WebAudio load fail:", url, e.message);
+          return null;
+        } finally { fetching.delete(url); }
+      })();
+      fetching.set(url, p);
+      return p;
+    }
+
+    async function playWebAudio(url, volume) {
+      const listener = Game.audioListener;
+      if (!listener || !listener.context) return false;
+
+      const ctx = listener.context;
+      if (ctx.state === "suspended") {
+        try { await ctx.resume(); } catch (e) {}
+      }
+
+      const buffer = await loadBuffer(url, ctx);
+      if (!buffer) return false;
+      if (volume <= 0) return false;
+
+      let master = 1;
+      try {
+        if (typeof listener.getMasterVolume === "function") {
+          master = listener.getMasterVolume() || 1;
+        }
+      } catch (e) {}
+
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      const gain = ctx.createGain();
+      gain.gain.value = volume * master;
+      src.connect(gain);
+
+      try {
+        const input = typeof listener.getInput === "function"
+          ? listener.getInput() : ctx.destination;
+        gain.connect(input);
+      } catch (e) {
+        try { gain.connect(ctx.destination); } catch (e2) {}
+      }
+
+      src.start(0);
+      return true;
+    }
+
+    /* ---------- HTML Audio (外部URL用) ---------- */
+    function playHtmlAudio(url, volume) {
+      try {
+        let audio = audioPool.get(url);
+        if (!audio) {
+          audio = new Audio();
+          audio.src = url;
+          audio.preload = "auto";
+          audioPool.set(url, audio);
+        }
+        audio.volume = clamp(volume, 0, 1);
+        try { audio.currentTime = 0; } catch (e) {}
+
+        const p = audio.play();
+        if (p && p.catch) {
+          p.catch((err) => {
+            console.warn("[BWN] HTML Audio play fail:", err.message);
+          });
+        }
+        return true;
+      } catch (e) {
+        console.warn("[BWN] HTML Audio error:", e.message);
+        return false;
+      }
+    }
+
+    /* ---------- メイン再生 ---------- */
+    async function playUrl(url, volumeOverride) {
+      if (!cfg("sound")) return;
+      if (!url) return;
+
+      const volume = clamp(
+        volumeOverride != null ? volumeOverride : cfg("volume"),
+        0, 1
+      );
+      if (volume <= 0) return;
+
+      if (url.includes("minefun.io")) {
+        const ok = await playWebAudio(url, volume);
+        if (ok) return;
+      }
+      playHtmlAudio(url, volume);
+    }
+
+    function play(kind, volumeOverride) {
+      const url = SOUND_URLS[kind];
+      return playUrl(url, volumeOverride);
+    }
+
+    function preload() {
+      const l = Game.audioListener;
+      if (l && l.context) {
+        Object.values(SOUND_URLS).forEach((u) => {
+          if (u.includes("minefun.io")) {
+            loadBuffer(u, l.context).catch(() => {});
+          }
+        });
+      }
+      Object.values(SOUND_URLS).forEach((u) => {
+        if (!u.includes("minefun.io") && !audioPool.has(u)) {
+          try {
+            const a = new Audio();
+            a.src = u;
+            a.preload = "auto";
+            a.volume = 0;
+            audioPool.set(u, a);
+          } catch (e) {}
+        }
+      });
+    }
+
+    return { play, playUrl, preload, playHtmlAudio, playWebAudio };
+  })();
+
+  /* ================================================================
+     Match State
+     ================================================================ */
+  const MatchState = {
+    _bedDestroyedTeams: new Set(),
+    _recentDeaths: [],
+    _notifiedEliminatedTeams: new Set(),
+    _lastReset: 0,
+    _playerPositionMemory: null,
+    _lastRoom: null,
+
+    markBedDestroyed(team) {
+      this._bedDestroyedTeams.add(teamKey(team));
+    },
+
+    markDeath() {
+      this._recentDeaths.push({ at: performance.now() });
+      const now = performance.now();
+      const windowMs = cfg("deathWindowMs");
+      this._recentDeaths = this._recentDeaths.filter(d => now - d.at < windowMs);
+    },
+
+    hasRecentDeath() {
+      const now = performance.now();
+      const windowMs = cfg("deathWindowMs");
+      return this._recentDeaths.some(d => now - d.at < windowMs);
+    },
+
+    isBedDestroyed(team) {
+      return this._bedDestroyedTeams.has(teamKey(team));
+    },
+
+    wasEliminated(team) {
+      return this._notifiedEliminatedTeams.has(teamKey(team));
+    },
+
+    markEliminated(team) {
+      this._notifiedEliminatedTeams.add(teamKey(team));
+    },
+
+    reset(reason = "manual") {
+      const hadBeds = this._bedDestroyedTeams.size;
+      const hadElims = this._notifiedEliminatedTeams.size;
+      this._bedDestroyedTeams.clear();
+      this._recentDeaths = [];
+      this._notifiedEliminatedTeams.clear();
+      this._lastReset = performance.now();
+      TeamInfo.reset();
+      Log.push(`[state] reset (${reason}) — beds:${hadBeds} elims:${hadElims}`, "");
+    },
+
+    checkMatchChange() {
+      try {
+        const room = Game.room;
+        if (!room) return;
+        if (this._lastRoom !== room) {
+          if (this._lastRoom !== null) {
+            this.reset("room change");
+          }
+          this._lastRoom = room;
+          return;
+        }
+        const now = performance.now();
+        if (this._lastReset && now - this._lastReset > 30000) {
+          const p = Game.player;
+          if (p && p.position) {
+            const pos = p.position;
+            if (this._playerPositionMemory) {
+              const dx = pos.x - this._playerPositionMemory.x;
+              const dz = pos.z - this._playerPositionMemory.z;
+              if (Math.sqrt(dx * dx + dz * dz) > 100) {
+                this.reset("teleport");
+              }
+            }
+            this._playerPositionMemory = { x: pos.x, z: pos.z };
+          }
+        }
+      } catch (e) {}
+    }
+  };
+
+  /* ================================================================
+     Styles
+     ================================================================ */
+  function injectStyles() {
+    if (byId("__bwn_styles")) return;
+    const style = document.createElement("style");
+    style.id = "__bwn_styles";
+    style.textContent = `
+#__bwn_stack{position:fixed;top:90px;left:50%;transform:translateX(-50%);z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;font-family:'Lilita One','Trebuchet MS',sans-serif;}
+.__bwn_toast{display:flex;align-items:center;gap:12px;padding:6px 16px 6px 6px;background:#2c2c3e;border:2px solid #0d0d17;border-radius:6px;box-shadow:0 3px 0 rgba(0,0,0,0.35),0 6px 18px rgba(0,0,0,0.45);opacity:0;transform:translateY(-12px);transition:opacity 200ms ease,transform 200ms ease;max-width:90vw;}
+.__bwn_toast.__bwn_show{opacity:1;transform:translateY(0);}
+.__bwn_toast .__bwn_icon{flex:0 0 auto;width:46px;height:46px;display:flex;align-items:center;justify-content:center;background:#1e1e2e;border:2px solid #0d0d17;border-radius:5px;}
+.__bwn_toast .__bwn_icon img{width:34px;height:34px;image-rendering:pixelated;object-fit:contain;}
+.__bwn_toast .__bwn_body{display:flex;flex-direction:column;justify-content:center;line-height:1.05;gap:2px;}
+.__bwn_toast .__bwn_title{display:block;font-size:20px;letter-spacing:0.5px;color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,0.7),-1px -1px 0 rgba(0,0,0,0.4),1px -1px 0 rgba(0,0,0,0.4),-1px 1px 0 rgba(0,0,0,0.4);}
+.__bwn_toast .__bwn_sub{display:block;font-size:15px;font-weight:400;color:#cfd3dd;font-family:'Trebuchet MS','Lilita One',sans-serif;letter-spacing:0.3px;text-shadow:1px 1px 0 rgba(0,0,0,0.7),-1px -1px 0 rgba(0,0,0,0.35);}
+.__bwn_toast .__bwn_sub .__bwn_red{color:#e04545;}
+.__bwn_toast .__bwn_sub .__bwn_yellow{color:#f0a500;}
+.__bwn_toast.__bwn_own{background:linear-gradient(135deg,#3d0d0d 0%,#2c0a0a 100%);border:3px solid #ff2244;box-shadow:0 0 20px rgba(255,34,68,0.6),0 0 40px rgba(255,34,68,0.3),0 4px 0 rgba(0,0,0,0.5),inset 0 0 20px rgba(255,34,68,0.15);animation:__bwn_pulse 1.2s ease-in-out infinite;}
+.__bwn_toast.__bwn_own .__bwn_icon{background:#1a0505;border-color:#ff2244;box-shadow:0 0 12px rgba(255,34,68,0.7);}
+.__bwn_toast.__bwn_own .__bwn_title{font-size:24px;color:#ff8899!important;text-shadow:0 0 8px rgba(255,34,68,0.9),2px 2px 0 rgba(0,0,0,0.9),-1px -1px 0 rgba(0,0,0,0.5),1px -1px 0 rgba(0,0,0,0.5),-1px 1px 0 rgba(0,0,0,0.5);}
+.__bwn_toast.__bwn_own .__bwn_sub{color:#ffbbcc;font-size:16px;font-weight:700;}
+@keyframes __bwn_pulse{0%,100%{box-shadow:0 0 20px rgba(255,34,68,0.6),0 0 40px rgba(255,34,68,0.3),0 4px 0 rgba(0,0,0,0.5),inset 0 0 20px rgba(255,34,68,0.15);}50%{box-shadow:0 0 30px rgba(255,34,68,0.9),0 0 60px rgba(255,34,68,0.5),0 4px 0 rgba(0,0,0,0.5),inset 0 0 30px rgba(255,34,68,0.25);}}
+#__bwn_panel{position:fixed;top:12px;left:12px;width:290px;background:#15121f;color:#e6f1ff;border:1px solid #23232f;border-radius:6px;font-family:sans-serif;font-size:12px;box-shadow:0 0 1rem rgba(0,0,0,0.5);display:none;flex-direction:column;user-select:none;z-index:2147483600;}
+#__bwn_panel.open{display:flex;}
+#__bwn_panel .header{height:42px;display:flex;align-items:center;gap:8px;padding:0 10px;background:#0b0b15;border-bottom:1px solid #23232f;border-radius:6px 6px 0 0;cursor:move;}
+#__bwn_panel .header .dot{width:8px;height:8px;border-radius:50%;background:#807f7f;}
+#__bwn_panel.on .header .dot{background:#23bd61;box-shadow:0 0 8px #23bd61;}
+#__bwn_panel .header .title{flex:1;color:#e6f1ff;font-size:13px;font-weight:700;letter-spacing:0.06em;}
+#__bwn_panel .header button{width:22px;height:22px;border:1px solid #23232f;background:#191221;color:#e6f1ff;border-radius:4px;cursor:pointer;font-size:11px;padding:0;}
+#__bwn_panel .body{padding:8px 12px 12px;max-height:70vh;overflow-y:auto;}
+#__bwn_panel .section{display:flex;align-items:center;gap:8px;margin:8px 0 4px;color:#807f7f;font-size:10px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;opacity:0.6;}
+#__bwn_panel .section::after{content:"";flex:1;height:1px;background:#807f7f;opacity:0.4;}
+#__bwn_panel .row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #23232f;}
+#__bwn_panel .row:last-child{border-bottom:none;}
+#__bwn_panel .row label{font-size:11.5px;color:#b6b6b6;flex-shrink:0;}
+#__bwn_panel .row .val{font-size:11px;color:#7b2fe6;min-width:40px;text-align:right;font-weight:600;}
+#__bwn_panel input[type="range"]{flex:1;accent-color:#7b2fe6;height:4px;}
+#__bwn_panel .tog{width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;position:relative;background:#2f2f3f;flex-shrink:0;}
+#__bwn_panel .tog.on{background:#23bd61;}
+#__bwn_panel .tog::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#e6f1ff;transition:left 0.15s;}
+#__bwn_panel .tog.on::after{left:18px;}
+#__bwn_panel .btn{padding:5px 10px;border-radius:4px;border:1px solid #23232f;background:#191221;color:#e6f1ff;cursor:pointer;font-size:11px;}
+#__bwn_panel .btn:hover{background:#23232f;}
+#__bwn_panel .footer{padding:6px 12px;font-size:9.5px;color:#807f7f;border-top:1px solid #23232f;text-align:center;}
+#__bwn_panel .log{font-family:monospace;font-size:10px;background:#0b0b15;padding:6px;border-radius:4px;max-height:120px;overflow-y:auto;color:#9b9ba6;border:1px solid #23232f;}
+#__bwn_panel .log div{padding:1px 0;}
+#__bwn_panel .log .log-hit{color:#23bd61;}
+#__bwn_panel .log .log-batch{color:#7b2fe6;}
+#__bwn_panel .log .log-own{color:#ff2244;font-weight:700;}
+#__bwn_panel .log .log-skip{color:#f0a500;}
+#__bwn_panel .team-badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;color:#fff;}
+#__bwn_tab{position:fixed;top:12px;left:12px;padding:6px 12px;background:#15121f;border:1px solid #23232f;border-radius:5px;color:#7b2fe6;font-family:sans-serif;font-size:11px;font-weight:700;cursor:pointer;z-index:2147483601;display:none;}
+#__bwn_tab:hover{color:#fff;}
+    `;
+    document.head.appendChild(style);
+  }
+
+  /* ================================================================
+     Toasts
+     ================================================================ */
+  const Toasts = (() => {
+    let container = null;
+    function getContainer() {
+      if (container && container.isConnected) return container;
+      let c = byId("__bwn_stack");
+      if (!c) { c = document.createElement("div"); c.id = "__bwn_stack"; document.body.appendChild(c); }
+      container = c;
+      return c;
+    }
+    function teamColor(t) {
+      const k = teamKey(t);
+      return TEAM_COLORS[k] || TEAM_COLORS[k.replace(/_/g, " ")] || "#ffffff";
+    }
+    function teamIconURL(t, kind) {
+      if (kind === "eliminated") return SKULL_ICON;
+      const k = teamKey(t);
+      return TEAM_ICONS[k] || TEAM_ICONS[k.replace(/_/g, " ")] || SKULL_ICON;
+    }
+
+    function show({ kind, team, line1, line1Color, line2, line2Before, line2Red, isOwn }) {
+      const c = getContainer();
+      const el = document.createElement("div");
+      el.className = "__bwn_toast";
+      if (isOwn) el.classList.add("__bwn_own");
+
+      const iconURL = teamIconURL(team, kind);
+      const color = line1Color || "#ffffff";
+
+      let subHtml = "";
+      if (line2 != null) subHtml = escHtml(line2);
+      else if (line2Before != null || line2Red != null) {
+        subHtml = escHtml(line2Before || "") + '<span class="__bwn_red">' + escHtml(line2Red || "") + "</span>";
+      }
+
+      el.innerHTML = `<div class="__bwn_icon"><img src="${escHtml(iconURL)}" alt=""></div><div class="__bwn_body"><span class="__bwn_title" style="color:${isOwn ? "#ff8899" : color};">${escHtml(line1)}</span><span class="__bwn_sub">${subHtml}</span></div>`;
+      c.appendChild(el);
+      requestAnimationFrame(() => el.classList.add("__bwn_show"));
+
+      const duration = isOwn
+        ? clamp(cfg("ownBedDuration"), 1000, 15000)
+        : clamp(cfg("duration"), 500, 10000);
+      const maxToasts = clamp(cfg("maxToasts"), 1, 10);
+
+      const all = Array.from(c.children);
+      if (all.length > maxToasts) {
+        for (let i = 0; i < all.length - maxToasts; i++) {
+          const old = all[i];
+          old.classList.remove("__bwn_show");
+          setTimeout(() => { try { old.remove(); } catch (e) {} }, 250);
+        }
+      }
+      setTimeout(() => {
+        el.classList.remove("__bwn_show");
+        setTimeout(() => { try { el.remove(); } catch (e) {} }, 250);
+      }, duration);
+    }
+    function destroy() {
+      if (container) { try { container.remove(); } catch (e) {} container = null; }
+    }
+    return { show, destroy, teamColor };
+  })();
+
+  /* ================================================================
+     Log
+     ================================================================ */
+  const Log = (() => {
+    const lines = [];
+    let el = null;
+    function attach(elRef) { el = elRef; }
+    function push(text, cls) {
+      const time = new Date().toLocaleTimeString("ja-JP", { hour12: false }).slice(0, 8);
+      const line = `[${time}] ${text}`;
+      lines.push({ text: line, cls });
+      if (lines.length > 50) lines.shift();
+      if (!el) return;
+      el.innerHTML = lines.map(l => `<div class="${l.cls || ""}">${escHtml(l.text)}</div>`).join("");
+      el.scrollTop = el.scrollHeight;
+    }
+    return { push, attach };
+  })();
+
+  /* ================================================================
+     パケット処理
+     ================================================================ */
+  function handleBedDestroyed(data) {
+    if (!cfg("bedDestroy")) { Log.push("1502 (Bed) — 設定OFF", ""); return; }
+    if (!Array.isArray(data)) { Log.push("1502 (Bed) — 不正データ", ""); return; }
+
+    const username = data[0];
+    const team = data[1];
+    if (!username || !team) { Log.push("1502 (Bed) — データ欠損", ""); return; }
+
+    MatchState.markBedDestroyed(team);
+
+    const isMyTeam = TeamInfo.isMyTeam(team);
+
+    if (isMyTeam && cfg("ownBedSpecial")) {
+      Log.push(`★★★ 自分のベッド破壊! (${team}) by ${username}`, "log-own");
+      Toasts.show({
+        kind: "bed", team,
+        line1: "⚠ YOUR BED DESTROYED ⚠",
+        line1Color: "#ff2244",
+        line2: "by " + username,
+        isOwn: true
+      });
+      Sound.play("ownBed", cfg("ownBedVolume"));
+    } else {
+      Log.push(`★ ベッド破壊: ${team} by ${username}`, "log-hit");
+      Toasts.show({
+        kind: "bed", team,
+        line1: String(team).toUpperCase() + " TEAM BED DESTROYED",
+        line1Color: Toasts.teamColor(team),
+        line2: "by " + username,
+        isOwn: false
+      });
+      Sound.play("bed");
+    }
+  }
+
+  function handleTeamEliminated(team) {
+    if (!cfg("teamElim")) { Log.push("1510 (Elim) — 設定OFF", ""); return; }
+    if (!team) { Log.push("1510 (Elim) — データ欠損", ""); return; }
+
+    if (cfg("dedupeElim") && MatchState.wasEliminated(team)) {
+      Log.push(`↺ 重複スキップ (既通知): ${team}`, "log-skip");
+      return;
+    }
+
+    if (cfg("filterLeavers")) {
+      const bedWasDestroyed = MatchState.isBedDestroyed(team);
+      const hasRecentDeath = MatchState.hasRecentDeath();
+
+      if (!bedWasDestroyed && !hasRecentDeath) {
+        Log.push(`🚫 退出と判定: ${team} (bed:${bedWasDestroyed} death:${hasRecentDeath})`, "log-skip");
+        return;
+      }
+    }
+
+    MatchState.markEliminated(team);
+
+    const isMyTeam = TeamInfo.isMyTeam(team);
+
+    if (isMyTeam) {
+      Log.push(`★★★ 自分のチーム全滅! (${team})`, "log-own");
+      Toasts.show({
+        kind: "eliminated", team,
+        line1: "☠ YOUR TEAM ELIMINATED ☠",
+        line1Color: "#ff2244",
+        line2Before: "game over",
+        line2Red: "",
+        isOwn: true
+      });
+      Sound.play("eliminated");
+    } else {
+      Log.push(`★ チーム全滅: ${team}`, "log-hit");
+      Toasts.show({
+        kind: "eliminated", team,
+        line1: String(team).toUpperCase() + " TEAM",
+        line1Color: Toasts.teamColor(team),
+        line2Before: "has been ",
+        line2Red: "eliminated",
+        isOwn: false
+      });
+      Sound.play("eliminated");
+    }
+  }
+
+  function onMessage(packetID, data) {
+    if (!cfg("enabled")) return;
+
+    MatchState.checkMatchChange();
+
+    if (packetID === OPCODE.BATCH && Array.isArray(data)) {
+      for (let i = 0; i < data.length; i++) {
+        const item = data[i];
+        if (Array.isArray(item) && item.length === 2) {
+          dispatchInner(item[0], item[1]);
+        }
+      }
+      for (let i = 2; i < data.length - 1; i += 2) {
+        const innerID = data[i];
+        const innerData = data[i + 1];
+        if (typeof innerID === "number") {
+          dispatchInner(innerID, innerData);
+        }
+      }
+      return;
+    }
+
+    dispatchInner(packetID, data);
+  }
+
+  function dispatchInner(id, data) {
+    if (id === OPCODE.BED_DESTROYED) handleBedDestroyed(data);
+    else if (id === OPCODE.TEAM_ELIMINATED) handleTeamEliminated(data);
+    else if (id === OPCODE.PLAYER_DEAD) MatchState.markDeath();
+  }
+
+  /* ================================================================
+     Room Hook
+     ================================================================ */
+  let _hookedRoom = null;
+  let _checkTimer = null;
+  let _rawCount = 0;
+
+  function tryHook() {
+    const room = Game.room;
+    if (!room || typeof room.onMessage !== "function") return;
+    if (_hookedRoom === room) return;
+
+    _hookedRoom = room;
+    try {
+      room.onMessage("*", (packetID, data) => {
+        _rawCount++;
+        try { onMessage(packetID, data); }
+        catch (e) { Log.push("ERR: " + e.message, ""); }
+      });
+      Log.push("room フック完了", "log-hit");
+    } catch (e) {
+      Log.push("フック失敗: " + e.message, "");
+    }
+  }
+
+  /* ================================================================
+     Panel
+     ================================================================ */
+  let _panelEl = null;
+  let _dragging = false;
+  const _dragOffset = { x: 0, y: 0 };
+
+  function buildHTML() {
+    return `
+      <div class="header" id="__bwn_header">
+        <span class="dot"></span>
+        <span class="title">BEDWARS NOTIF</span>
+        <button id="__bwn_hide">✕</button>
+      </div>
+      <div class="body">
+        <div class="row">
+          <label>Enabled</label>
+          <div class="tog${cfg("enabled") ? " on" : ""}" id="__bwn_en"></div>
+        </div>
+
+        <div class="section">My Team</div>
+        <div class="row">
+          <label>My Team</label>
+          <span id="__bwn_myteam" style="font-size:11px;color:#23bd61;font-weight:700;">(検出中...)</span>
+        </div>
+
+        <div class="section">Events</div>
+        <div class="row">
+          <label>Bed Destroy</label>
+          <div class="tog${cfg("bedDestroy") ? " on" : ""}" id="__bwn_bed"></div>
+        </div>
+        <div class="row">
+          <label>Team Elim</label>
+          <div class="tog${cfg("teamElim") ? " on" : ""}" id="__bwn_elim"></div>
+        </div>
+        <div class="row">
+          <label>Filter Leavers</label>
+          <div class="tog${cfg("filterLeavers") ? " on" : ""}" id="__bwn_leaver"></div>
+        </div>
+        <div class="row">
+          <label>Dedupe Elim</label>
+          <div class="tog${cfg("dedupeElim") ? " on" : ""}" id="__bwn_dedup"></div>
+        </div>
+
+        <div class="section">Sound</div>
+        <div class="row">
+          <label>Play Sound</label>
+          <div class="tog${cfg("sound") ? " on" : ""}" id="__bwn_snd"></div>
+        </div>
+        <div class="row">
+          <label>Volume</label>
+          <input type="range" id="__bwn_vol" min="0" max="1" step="0.05" value="${cfg("volume")}">
+          <div class="val" id="__bwn_vol_v">${Math.round(cfg("volume") * 100)}%</div>
+        </div>
+        <div class="row">
+          <label>Own Bed Vol</label>
+          <input type="range" id="__bwn_ownvol" min="0" max="1" step="0.05" value="${cfg("ownBedVolume")}">
+          <div class="val" id="__bwn_ownvol_v">${Math.round(cfg("ownBedVolume") * 100)}%</div>
+        </div>
+
+        <div class="section">Display</div>
+        <div class="row">
+          <label>Duration</label>
+          <input type="range" id="__bwn_dur" min="1000" max="8000" step="250" value="${cfg("duration")}">
+          <div class="val" id="__bwn_dur_v">${(cfg("duration") / 1000).toFixed(1)}s</div>
+        </div>
+        <div class="row">
+          <label>Own Duration</label>
+          <input type="range" id="__bwn_owndur" min="2000" max="12000" step="500" value="${cfg("ownBedDuration")}">
+          <div class="val" id="__bwn_owndur_v">${(cfg("ownBedDuration") / 1000).toFixed(1)}s</div>
+        </div>
+
+        <div class="section">Debug</div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:6px;">
+          <div class="log" id="__bwn_log"></div>
+        </div>
+
+        <div class="section">Test</div>
+        <div class="row">
+          <button class="btn" id="__bwn_test1">Bed</button>
+          <button class="btn" id="__bwn_test2">Elim</button>
+        </div>
+        <div class="row">
+          <button class="btn" id="__bwn_testown" style="flex:1;background:#3d0d0d;border-color:#ff2244;color:#ff8899;">Test MY Bed</button>
+        </div>
+        <div class="row">
+          <button class="btn" id="__bwn_testbatch" style="flex:1;">Test Batch</button>
+        </div>
+        <div class="row">
+          <button class="btn" id="__bwn_refresh" style="flex:1;">Refresh Team</button>
+        </div>
+      </div>
+      <div class="footer">v1.5</div>
+    `;
+  }
+
+  function updateMyTeamDisplay() {
+    const el = byId("__bwn_myteam");
+    if (!el) return;
+    const myTeam = TeamInfo.getMyTeam();
+    if (myTeam) {
+      const color = Toasts.teamColor(myTeam);
+      el.innerHTML = `<span class="team-badge" style="background:${color};color:#000;">${escHtml(myTeam.toUpperCase())}</span>`;
+    } else {
+      el.textContent = "(未検出)";
+      el.style.color = "#807f7f";
+    }
+  }
+
+  function initPanel() {
+    if (_panelEl) return;
+    injectStyles();
+    _panelEl = document.createElement("div");
+    _panelEl.id = "__bwn_panel";
+    _panelEl.innerHTML = buildHTML();
+    document.body.appendChild(_panelEl);
+
+    const tab = document.createElement("div");
+    tab.id = "__bwn_tab";
+    tab.textContent = "BWN";
+    document.body.appendChild(tab);
+
+    tab.addEventListener("click", () => {
+      _panelEl.classList.add("open");
+      tab.style.display = "none";
+      cfgSet("panelOpen", true);
+    });
+    byId("__bwn_hide").addEventListener("click", () => {
+      _panelEl.classList.remove("open");
+      tab.style.display = "block";
+      cfgSet("panelOpen", false);
+    });
+
+    Log.attach(byId("__bwn_log"));
+
+    const bindTog = (id, key) => {
+      const el = byId(id);
+      if (!el) return;
+      el.addEventListener("click", () => {
+        const now = !el.classList.contains("on");
+        el.classList.toggle("on", now);
+        cfgSet(key, now);
+      });
+    };
+    bindTog("__bwn_en", "enabled");
+    bindTog("__bwn_bed", "bedDestroy");
+    bindTog("__bwn_elim", "teamElim");
+    bindTog("__bwn_snd", "sound");
+    bindTog("__bwn_leaver", "filterLeavers");
+    bindTog("__bwn_dedup", "dedupeElim");
+
+    const bindSlider = (sId, vId, key, fmt) => {
+      const s = byId(sId), v = byId(vId);
+      if (!s) return;
+      s.oninput = () => {
+        const n = parseFloat(s.value);
+        v.textContent = fmt(n);
+        cfgSet(key, n);
+      };
+    };
+    bindSlider("__bwn_vol", "__bwn_vol_v", "volume", (v) => Math.round(v * 100) + "%");
+    bindSlider("__bwn_ownvol", "__bwn_ownvol_v", "ownBedVolume", (v) => Math.round(v * 100) + "%");
+    bindSlider("__bwn_dur", "__bwn_dur_v", "duration", (v) => (v / 1000).toFixed(1) + "s");
+    bindSlider("__bwn_owndur", "__bwn_owndur_v", "ownBedDuration", (v) => (v / 1000).toFixed(1) + "s");
+
+    byId("__bwn_test1").addEventListener("click", () => {
+      Toasts.show({
+        kind: "bed", team: "red",
+        line1: "RED TEAM BED DESTROYED",
+        line1Color: Toasts.teamColor("red"),
+        line2: "by TestPlayer"
+      });
+      Sound.play("bed");
+    });
+    byId("__bwn_test2").addEventListener("click", () => {
+      Toasts.show({
+        kind: "eliminated", team: "blue",
+        line1: "BLUE TEAM",
+        line1Color: Toasts.teamColor("blue"),
+        line2Before: "has been ",
+        line2Red: "eliminated"
+      });
+      Sound.play("eliminated");
+    });
+    byId("__bwn_testown").addEventListener("click", () => {
+      Toasts.show({
+        kind: "bed", team: "red",
+        line1: "⚠ YOUR BED DESTROYED ⚠",
+        line1Color: "#ff2244",
+        line2: "by TestPlayer",
+        isOwn: true
+      });
+      Sound.play("ownBed", cfg("ownBedVolume"));
+    });
+    byId("__bwn_testbatch").addEventListener("click", () => {
+      onMessage(3, [0, 0, 1502, ["BatchPlayer", "green"], 1510, "yellow"]);
+    });
+    byId("__bwn_refresh").addEventListener("click", () => {
+      TeamInfo.reset();
+      updateMyTeamDisplay();
+      Log.push("チーム情報を再取得", "");
+    });
+
+    const header = byId("__bwn_header");
+    header.addEventListener("mousedown", (e) => {
+      if (e.target.closest("button")) return;
+      _dragging = true;
+      const r = _panelEl.getBoundingClientRect();
+      _dragOffset.x = e.clientX - r.left;
+      _dragOffset.y = e.clientY - r.top;
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!_dragging) return;
+      const x = clamp(e.clientX - _dragOffset.x, 0, innerWidth - _panelEl.offsetWidth);
+      const y = clamp(e.clientY - _dragOffset.y, 0, innerHeight - _panelEl.offsetHeight);
+      _panelEl.style.left = x + "px";
+      _panelEl.style.top = y + "px";
+    });
+    document.addEventListener("mouseup", () => { _dragging = false; });
+
+    setInterval(() => {
+      if (!_panelEl) return;
+      _panelEl.classList.toggle("on", cfg("enabled") && !!_hookedRoom);
+    }, 200);
+
+    setInterval(updateMyTeamDisplay, 2000);
+    updateMyTeamDisplay();
+
+    if (cfg("panelOpen")) _panelEl.classList.add("open");
+    else tab.style.display = "block";
+  }
+
+  /* ================================================================
+     Boot
+     ================================================================ */
+  function boot() {
+    injectStyles();
+    initPanel();
+    _checkTimer = setInterval(tryHook, 1000);
+    tryHook();
+    setTimeout(() => { if (Game.audioListener) Sound.preload(); }, 2000);
+  }
+
+  /* ================================================================
+     Public API
+     ================================================================ */
+  const API = {
+    version: "1.5",
+
+    testBed: (team = "red", player = "TestPlayer") => {
+      Toasts.show({
+        kind: "bed", team,
+        line1: String(team).toUpperCase() + " TEAM BED DESTROYED",
+        line1Color: Toasts.teamColor(team),
+        line2: "by " + player
+      });
+      Sound.play("bed");
+    },
+    testElim: (team = "blue") => {
+      Toasts.show({
+        kind: "eliminated", team,
+        line1: String(team).toUpperCase() + " TEAM",
+        line1Color: Toasts.teamColor(team),
+        line2Before: "has been ",
+        line2Red: "eliminated"
+      });
+      Sound.play("eliminated");
+    },
+    testOwnBed: () => {
+      Toasts.show({
+        kind: "bed", team: "red",
+        line1: "⚠ YOUR BED DESTROYED ⚠",
+        line1Color: "#ff2244",
+        line2: "by TestPlayer",
+        isOwn: true
+      });
+      Sound.play("ownBed", cfg("ownBedVolume"));
+    },
+
+    getMyTeam: () => TeamInfo.getMyTeam(),
+    isMyTeam: (team) => TeamInfo.isMyTeam(team),
+    refreshTeam: () => { TeamInfo.reset(); updateMyTeamDisplay(); },
+    resetState: () => MatchState.reset("manual"),
+
+    status: () => ({
+      enabled: cfg("enabled"),
+      myTeam: TeamInfo.getMyTeam(),
+      hooked: !!_hookedRoom,
+      rawPackets: _rawCount,
+      notifiedElims: Array.from(MatchState._notifiedEliminatedTeams)
+    }),
+
+    showPanel: () => {
+      initPanel();
+      if (_panelEl) _panelEl.classList.add("open");
+      const t = byId("__bwn_tab");
+      if (t) t.style.display = "none";
+    },
+    hidePanel: () => {
+      if (_panelEl) _panelEl.classList.remove("open");
+      const t = byId("__bwn_tab");
+      if (t) t.style.display = "block";
+    },
+
+    destroy() {
+      if (_checkTimer) { clearInterval(_checkTimer); _checkTimer = null; }
+      Toasts.destroy();
+      if (_panelEl) { try { _panelEl.remove(); } catch (e) {} _panelEl = null; }
+      const t = byId("__bwn_tab");
+      if (t) t.remove();
+      const s = byId("__bwn_styles");
+      if (s) s.remove();
+      _hookedRoom = null;
+      delete window.__BW_NOTIF__;
+      delete window.BWN;
+      console.log("[BWN] destroyed");
+    }
+  };
+
+  window.__BW_NOTIF__ = API;
+  window.BWN = API;
+
+  if (document.body) boot();
+  else {
+    new MutationObserver((_, obs) => {
+      if (document.body) { obs.disconnect(); boot(); }
+    }).observe(document.documentElement, { childList: true });
+  }
+
+  console.log("%c✦ BedWars Notifications v1.5", "color:#ffcc33;font-weight:700;background:#0f1015;padding:3px 8px;border-radius:4px");
+  console.log("  BWN.testBed()     // 通常ベッド通知テスト");
+  console.log("  BWN.testOwnBed()  // 自分のベッド通知テスト (カスタム音)");
+  console.log("  BWN.status()      // 状態確認");
+  console.log("  BWN.destroy()     // 完全削除");
+})();
