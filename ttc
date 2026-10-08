@@ -1,21 +1,7 @@
-/*
- * Celestar Mod Menu v2 created by thetalkingcat (@thetalkingcat8089)
- * Website: https://celestar.pages.dev
- * Youtube: https://youtube.com/@thetalkingcat8089
- * Discord: https://dsc.gg/celestar
- * GitHub: https://github.com/celestarminefun
- * By a MineFunner, for a MineFunner.
- */
-
-/*
-  * Copyright © 2026 Celestar / thetalkingcat
-  * ALL RIGHTS RESERVED
-
-  * This source code is proprietary. Copying, reusing, modifying, redistributing with or without AI without explicit
-  * permission from the creator (thetalkingcat) is strictly prohibited.
-
-  * Permission is REQUIRED for any reuse.
-*/
+/* コンソール互換スタブ */
+if (typeof GM_getValue === "undefined") {
+  var GM_getValue = function (key, defaultValue) { return defaultValue; };
+}
 
 const CS_STORAGE_PREFIX = "__celestar_cmm_v2__:";
 
